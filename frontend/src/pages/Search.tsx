@@ -1,4 +1,4 @@
-import { LogOut, Plane, Search as SearchIcon } from 'lucide-react'
+import { BookmarkCheck, LogOut, Plane, Search as SearchIcon } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AirportInput from '../components/AirportInput'
@@ -39,6 +39,13 @@ export default function Search() {
   const [loading, setLoading] = useState(false)
   const [formError, setFormError] = useState('')
 
+  // Save-route state
+  const [trackRoute, setTrackRoute] = useState(false)
+  const [alertPrice, setAlertPrice] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [saveSuccess, setSaveSuccess] = useState(false)
+
   function handleLogout() {
     localStorage.removeItem('token')
     navigate('/login')
@@ -72,6 +79,37 @@ export default function Search() {
       setFormError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleSaveRoute() {
+    if (!origin || !destination || !dateFrom || !dateTo) return
+    setSaving(true)
+    setSaveError('')
+    setSaveSuccess(false)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch('/api/routes/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          origin: origin.iata,
+          destination: destination.iata,
+          date_from: toISO(dateFrom),
+          date_to: toISO(dateTo),
+          alert_price: alertPrice ? parseInt(alertPrice, 10) : null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail ?? 'Failed to save route')
+      setSaveSuccess(true)
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -139,6 +177,73 @@ export default function Search() {
               <SearchIcon className="w-4 h-4" />
               {loading ? 'Searching…' : 'Search flights'}
             </button>
+
+            {/* Save-route section */}
+            <div className="mt-5 pt-5 border-t border-gray-100">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none w-fit">
+                <input
+                  type="checkbox"
+                  checked={trackRoute}
+                  onChange={e => {
+                    setTrackRoute(e.target.checked)
+                    if (!e.target.checked) {
+                      setAlertPrice('')
+                      setSaveError('')
+                      setSaveSuccess(false)
+                    }
+                  }}
+                  className="w-4 h-4 rounded accent-brand-600 cursor-pointer"
+                />
+                <span className="text-sm font-medium text-gray-700">Start route search</span>
+              </label>
+
+              {trackRoute && (
+                <div className="mt-4 flex flex-wrap items-end gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Alert price (€) <span className="text-gray-400 font-normal">— optional</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={alertPrice}
+                      onChange={e => {
+                        setSaveSuccess(false)
+                        setSaveError('')
+                        setAlertPrice(e.target.value.replace(/\D/g, ''))
+                      }}
+                      onKeyDown={e => {
+                        if (['.', ',', '-', '+', 'e', 'E'].includes(e.key)) e.preventDefault()
+                      }}
+                      placeholder="e.g. 50"
+                      className="w-36 px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveRoute}
+                    disabled={saving || !origin || !destination || !dateFrom || !dateTo}
+                    className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
+                  >
+                    <BookmarkCheck className="w-4 h-4" />
+                    {saving ? 'Saving…' : 'Save search'}
+                  </button>
+                </div>
+              )}
+
+              {trackRoute && saveSuccess && (
+                <div className="mt-3 flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                  <BookmarkCheck className="w-4 h-4 shrink-0" />
+                  Route saved successfully.
+                </div>
+              )}
+              {trackRoute && saveError && (
+                <div className="mt-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+                  {saveError}
+                </div>
+              )}
+            </div>
           </form>
         </div>
 

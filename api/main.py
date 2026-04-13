@@ -4,7 +4,7 @@ from passlib.context import CryptContext
 
 from database import Base, SessionLocal, engine
 from models import User
-from routers import auth, flights
+from routers import auth, flights, routes
 
 app = FastAPI(title="El Cheapo API", version="0.1.0")
 
@@ -18,6 +18,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(flights.router)
+app.include_router(routes.router)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
