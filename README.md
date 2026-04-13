@@ -137,7 +137,7 @@ All routes endpoints require an `Authorization: Bearer <token>` header.
 }
 ```
 
-`alert_price` is optional. When provided it must be a whole number (integer) — no decimals. Returns `{ "id": "<uuid>" }` on success.
+`alert_price` is optional. When provided it must be a whole number (integer, no decimals) and represents the **maximum combined price for the full return trip** (outbound + inbound). Returns `{ "id": "<uuid>" }` on success.
 
 #### Password reset flow
 
