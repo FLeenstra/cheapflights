@@ -117,7 +117,7 @@ export default function SavedSearches() {
                   {route.alert_price !== null ? (
                     <div className="flex items-center gap-1.5 text-brand-700 bg-brand-50 px-3 py-1.5 rounded-lg font-medium">
                       <Bell className="w-3.5 h-3.5" />
-                      Alert at €{route.alert_price}
+                      Max total €{route.alert_price}
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5 text-gray-400 px-3 py-1.5">

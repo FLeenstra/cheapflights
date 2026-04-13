@@ -177,9 +177,10 @@ export default function Search() {
               {trackRoute && (
                 <div className="mt-4 flex flex-wrap items-end gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Alert price (€) <span className="text-gray-400 font-normal">— optional</span>
+                    <label className="block text-sm font-medium text-gray-700 mb-0.5">
+                      Max total price (€) <span className="text-gray-400 font-normal">— optional</span>
                     </label>
+                    <p className="text-xs text-gray-400 mb-1.5">Outbound + return combined</p>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -192,7 +193,7 @@ export default function Search() {
                       onKeyDown={e => {
                         if (['.', ',', '-', '+', 'e', 'E'].includes(e.key)) e.preventDefault()
                       }}
-                      placeholder="e.g. 50"
+                      placeholder="e.g. 100"
                       className="w-36 px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition"
                     />
                   </div>
@@ -227,32 +228,23 @@ export default function Search() {
         {/* Loading skeleton */}
         {loading && (
           <div className="space-y-6">
+            <div className="space-y-2.5">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-gray-100 h-20 animate-pulse" />
+              ))}
+            </div>
+            <div className="space-y-2.5">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-gray-100 h-20 animate-pulse" />
+              ))}
+            </div>
             <div className="bg-white rounded-2xl border border-gray-100 h-36 animate-pulse" />
-            <div className="space-y-2.5">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl border border-gray-100 h-20 animate-pulse" />
-              ))}
-            </div>
-            <div className="space-y-2.5">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl border border-gray-100 h-20 animate-pulse" />
-              ))}
-            </div>
           </div>
         )}
 
         {/* Results */}
         {!loading && results && searchedRoute && (
           <div className="space-y-8">
-            <PriceSuggestions
-              suggestions={results.suggestions}
-              currency={results.currency}
-              onSelect={(outboundDate, inboundDate) => {
-                if (!origin || !destination) return
-                doSearch(origin, destination, fromISO(outboundDate), fromISO(inboundDate))
-              }}
-            />
-
             <FlightList
               label="Outbound"
               from={searchedRoute.origin.city}
@@ -269,6 +261,15 @@ export default function Search() {
               date={searchedRoute.dateTo}
               flights={results.inbound.flights}
               error={results.inbound.error}
+            />
+
+            <PriceSuggestions
+              suggestions={results.suggestions}
+              currency={results.currency}
+              onSelect={(outboundDate, inboundDate) => {
+                if (!origin || !destination) return
+                doSearch(origin, destination, fromISO(outboundDate), fromISO(inboundDate))
+              }}
             />
           </div>
         )}
