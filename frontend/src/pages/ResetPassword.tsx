@@ -1,0 +1,175 @@
+import { Plane } from 'lucide-react'
+import { FormEvent, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+
+export default function ResetPassword() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const token = searchParams.get('token') ?? ''
+
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [done, setDone] = useState(false)
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError('')
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail ?? 'Reset failed')
+      setDone(true)
+      setTimeout(() => navigate('/login'), 3000)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex">
+      {/* Left panel */}
+      <div className="hidden lg:flex lg:w-5/12 flex-col justify-between bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 p-12 text-white">
+        <div className="flex items-center gap-3">
+          <div className="bg-white/20 rounded-xl p-2">
+            <Plane className="w-6 h-6 text-white" />
+          </div>
+          <span className="text-xl font-bold tracking-tight">El Cheapo</span>
+        </div>
+
+        <div>
+          <h1 className="text-4xl font-bold leading-tight mb-4">
+            Choose a new<br />password.
+          </h1>
+          <p className="text-brand-200 text-lg leading-relaxed">
+            Pick something strong and unique. You'll be signed in straight away after resetting.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-4 text-brand-200 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-400" />
+            At least 8 characters
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-brand-300" />
+            Single use link
+          </div>
+        </div>
+      </div>
+
+      {/* Right panel */}
+      <div className="flex-1 flex items-center justify-center bg-white px-6 py-12">
+        <div className="w-full max-w-md">
+          {/* Mobile logo */}
+          <div className="flex items-center gap-3 mb-10 lg:hidden">
+            <div className="bg-brand-600 rounded-xl p-2">
+              <Plane className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-lg font-bold text-gray-900">El Cheapo</span>
+          </div>
+
+          {!token ? (
+            <>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Invalid link</h2>
+              <p className="text-gray-500 mb-8">
+                This reset link is missing or malformed. Please request a new one.
+              </p>
+              <Link
+                to="/forgot-password"
+                className="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl transition"
+              >
+                Request a new link
+              </Link>
+            </>
+          ) : done ? (
+            <>
+              <div className="mb-6 flex items-center justify-center w-14 h-14 rounded-full bg-green-100">
+                <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Password updated</h2>
+              <p className="text-gray-500 mb-8">
+                Your password has been changed successfully. Redirecting you to sign in…
+              </p>
+              <Link
+                to="/login"
+                className="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl transition"
+              >
+                Sign in now
+              </Link>
+            </>
+          ) : (
+            <>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Set new password</h2>
+              <p className="text-gray-500 mb-8">Choose a new password for your account.</p>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    New password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Confirm new password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition"
+                  />
+                </div>
+
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
+                >
+                  {loading ? 'Updating…' : 'Update password'}
+                </button>
+              </form>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
