@@ -97,6 +97,45 @@ def test_save_route_date_from_after_date_to(client):
     assert "date_from" in res.json()["detail"].lower()
 
 
+def test_save_route_duplicate_rejected(client):
+    token = _register_and_token(client, "dup@test.com")
+    payload = {
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "alert_price": 80,
+    }
+    assert client.post("/routes/", json=payload, headers=_auth(token)).status_code == 201
+
+    # Same route, different price — must be rejected
+    payload["alert_price"] = 120
+    res = client.post("/routes/", json=payload, headers=_auth(token))
+    assert res.status_code == 409
+    assert "already" in res.json()["detail"].lower()
+
+
+def test_save_route_duplicate_allowed_for_different_user(client):
+    token_a = _register_and_token(client, "da@test.com")
+    token_b = _register_and_token(client, "db@test.com")
+    payload = {
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+    }
+    assert client.post("/routes/", json=payload, headers=_auth(token_a)).status_code == 201
+    assert client.post("/routes/", json=payload, headers=_auth(token_b)).status_code == 201
+
+
+def test_save_route_same_route_different_dates_allowed(client):
+    token = _register_and_token(client, "dates2@test.com")
+    assert client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+    }, headers=_auth(token)).status_code == 201
+    assert client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-09-01", "date_to": "2025-09-08",
+    }, headers=_auth(token)).status_code == 201
+
+
 def test_save_route_missing_fields(client):
     token = _register_and_token(client, "missing@test.com")
     res = client.post("/routes/", json={"origin": "DUB"}, headers=_auth(token))

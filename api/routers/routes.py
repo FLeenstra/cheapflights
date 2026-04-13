@@ -69,6 +69,19 @@ def save_route(
     if body.date_from > body.date_to:
         raise HTTPException(status_code=400, detail="date_from must be before date_to")
 
+    duplicate = db.query(Route).filter(
+        Route.user_id == current_user.id,
+        Route.origin == body.origin.upper(),
+        Route.destination == body.destination.upper(),
+        Route.date_from == body.date_from,
+        Route.date_to == body.date_to,
+    ).first()
+    if duplicate:
+        raise HTTPException(
+            status_code=409,
+            detail="You already have a saved search for this route and dates.",
+        )
+
     route = Route(
         user_id=current_user.id,
         origin=body.origin.upper(),
