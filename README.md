@@ -10,7 +10,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 - **Price suggestions** — cheapest outbound + inbound prices for 7 date combinations (−3 to +3 days)
 - **Airport autocomplete** — fast local search across all IATA codes
 - **User accounts** — register, log in, and reset your password via email
-- **Saved searches** — save any route search to your account with an optional target price
+- **Saved searches** — save any route search to your account with an optional target price; view and delete them from a dedicated page
 - **Fully containerised** — one `docker compose up` gets you a running stack
 
 ---
@@ -119,9 +119,11 @@ The API creates all database tables and a default admin account on first startup
 
 All routes endpoints require an `Authorization: Bearer <token>` header.
 
-| Method | Path | Body | Description |
+| Method | Path | Body / params | Description |
 |---|---|---|---|
+| `GET` | `/routes/` | — | List all saved routes for the authenticated user (newest first) |
 | `POST` | `/routes/` | see below | Save a route search to the authenticated user's account |
+| `DELETE` | `/routes/{id}` | — | Delete a saved route (404 if not found or owned by another user) |
 
 #### Save route body
 
@@ -247,7 +249,7 @@ cheapflights/
 │   ├── routers/
 │   │   ├── auth.py          # register, login, forgot-password, reset-password + JWT dependency
 │   │   ├── flights.py       # GET /flights/search + Ryanair API logic
-│   │   └── routes.py        # POST /routes/ — save a route search
+│   │   └── routes.py        # GET/POST/DELETE /routes/
 │   ├── tests/
 │   │   ├── conftest.py      # SQLite test client + fixtures
 │   │   ├── test_auth.py
@@ -259,10 +261,9 @@ cheapflights/
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx          # Router (Login, Register, ForgotPassword, ResetPassword, Search)
-│   │   ├── pages/           # Login, Register, ForgotPassword, ResetPassword, Search
-│   │   │                    # Search includes the save-route panel
-│   │   ├── components/      # AirportInput, DateRangePicker, FlightList, PriceSuggestions
+│   │   ├── App.tsx          # Router (Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches)
+│   │   ├── pages/           # Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches
+│   │   ├── components/      # Navbar, AirportInput, DateRangePicker, FlightList, PriceSuggestions
 │   │   └── data/
 │   │       └── airports.ts  # IATA code database
 │   ├── package.json
@@ -288,7 +289,7 @@ cheapflights/
 ## Roadmap
 
 - [x] Password reset via email
-- [x] Save route searches with optional target price per user account
+- [x] Save route searches with optional target price per user account, with list and delete via the Saved searches page
 - [ ] Price alert emails when a saved route drops below the target price
 - [ ] Return-trip total in the main results view
 - [ ] Support for multi-month searches
