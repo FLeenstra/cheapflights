@@ -1,9 +1,9 @@
-import { BookmarkCheck, LogOut, Plane, Search as SearchIcon } from 'lucide-react'
+import { BookmarkCheck, Search as SearchIcon } from 'lucide-react'
 import { FormEvent, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
 import AirportInput from '../components/AirportInput'
 import DateRangePicker from '../components/DateRangePicker'
 import FlightList, { type Flight } from '../components/FlightList'
+import Navbar from '../components/Navbar'
 import PriceSuggestions, { type Suggestion } from '../components/PriceSuggestions'
 import type { Airport } from '../data/airports'
 
@@ -29,7 +29,6 @@ function fromISO(s: string) {
 }
 
 export default function Search() {
-  const navigate = useNavigate()
   const [origin, setOrigin] = useState<Airport | null>(null)
   const [destination, setDestination] = useState<Airport | null>(null)
   const [dateFrom, setDateFrom] = useState<Date | undefined>()
@@ -45,11 +44,6 @@ export default function Search() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
-
-  function handleLogout() {
-    localStorage.removeItem('token')
-    navigate('/login')
-  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -115,24 +109,7 @@ export default function Search() {
 
   return (
     <div className="min-h-screen bg-brand-50">
-      {/* Navbar */}
-      <nav className="bg-white border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/search" className="flex items-center gap-2.5">
-            <div className="bg-brand-600 rounded-lg p-1.5">
-              <Plane className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-gray-900">El Cheapo</span>
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition"
-          >
-            <LogOut className="w-4 h-4" />
-            Sign out
-          </button>
-        </div>
-      </nav>
+      <Navbar />
 
       <div className="max-w-5xl mx-auto px-6 py-10">
         {/* Search card */}

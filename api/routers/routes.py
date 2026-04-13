@@ -1,7 +1,8 @@
-from datetime import date
+import uuid as uuid_module
+from datetime import date, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,45 @@ class SaveRouteRequest(BaseModel):
     date_from: date
     date_to: date
     alert_price: int | None = None  # whole euros only; None means no alert
+
+
+class RouteOut(BaseModel):
+    id: str
+    origin: str
+    destination: str
+    date_from: date
+    date_to: date
+    alert_price: int | None
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/", response_model=list[RouteOut])
+def list_routes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    routes = (
+        db.query(Route)
+        .filter(Route.user_id == current_user.id)
+        .order_by(Route.created_at.desc())
+        .all()
+    )
+    return [
+        RouteOut(
+            id=str(r.id),
+            origin=r.origin,
+            destination=r.destination,
+            date_from=r.date_from,
+            date_to=r.date_to,
+            alert_price=int(r.alert_price) if r.alert_price is not None else None,
+            is_active=r.is_active,
+            created_at=r.created_at,
+        )
+        for r in routes
+    ]
 
 
 @router.post("/", status_code=201)
@@ -41,3 +81,27 @@ def save_route(
     db.commit()
     db.refresh(route)
     return {"id": str(route.id)}
+
+
+@router.delete("/{route_id}", status_code=204)
+def delete_route(
+    route_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        rid = uuid_module.UUID(route_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Route not found")
+
+    route = db.query(Route).filter(
+        Route.id == rid,
+        Route.user_id == current_user.id,
+    ).first()
+
+    if not route:
+        raise HTTPException(status_code=404, detail="Route not found")
+
+    db.delete(route)
+    db.commit()
+    return Response(status_code=204)

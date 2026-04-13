@@ -3,6 +3,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ResetPassword from './pages/ResetPassword'
+import SavedSearches from './pages/SavedSearches'
 import Search from './pages/Search'
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/search" element={<Search />} />
+        <Route path="/saved-searches" element={<SavedSearches />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
