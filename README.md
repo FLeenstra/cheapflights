@@ -9,7 +9,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 - **Flight search** — real-time prices pulled from Ryanair's API for any origin/destination pair
 - **Price suggestions** — cheapest outbound + inbound prices for 7 date combinations (−3 to +3 days)
 - **Airport autocomplete** — fast local search across all IATA codes
-- **User accounts** — register, log in, receive a JWT, and (soon) set price alerts
+- **User accounts** — register, log in, and reset your password via email
 - **Price alerts** — schema in place; alert when a route drops below your threshold
 - **Fully containerised** — one `docker compose up` gets you a running stack
 
@@ -52,13 +52,21 @@ cd cheapflights
 cp .env.example .env
 ```
 
-Open `.env` and set a strong `SECRET_KEY`. The default Postgres credentials are fine for local use.
+Open `.env` and set a strong `SECRET_KEY`. The default Postgres credentials are fine for local use. SMTP settings are optional — if left blank the password-reset link is printed to the API container logs instead of emailed.
 
 ```env
 POSTGRES_USER=cheapflights
 POSTGRES_PASSWORD=changeme
 POSTGRES_DB=cheapflights
 SECRET_KEY=your-very-secret-key-here
+
+# Optional — required to send password-reset emails
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM=you@gmail.com
+FRONTEND_URL=http://localhost:5173
 ```
 
 ### 3. Start the stack
@@ -87,6 +95,12 @@ The API creates all database tables and a default admin account on first startup
 | `POSTGRES_DB` | Yes | — | PostgreSQL database name |
 | `SECRET_KEY` | Yes | `change-me-in-production` | JWT signing key — **change this** |
 | `DATABASE_URL` | No | derived from the above | Full SQLAlchemy connection string (set automatically by Docker Compose) |
+| `FRONTEND_URL` | No | `http://localhost:5173` | Base URL used in password-reset email links |
+| `SMTP_HOST` | No | — | SMTP server hostname. If unset, reset links are logged to stdout |
+| `SMTP_PORT` | No | `587` | SMTP port (STARTTLS) |
+| `SMTP_USER` | No | — | SMTP login username |
+| `SMTP_PASSWORD` | No | — | SMTP login password |
+| `SMTP_FROM` | No | same as `SMTP_USER` | From address on outgoing emails |
 
 ---
 
@@ -98,6 +112,16 @@ The API creates all database tables and a default admin account on first startup
 |---|---|---|---|
 | `POST` | `/auth/register` | `{ "email": "...", "password": "..." }` | Register a new user, returns JWT |
 | `POST` | `/auth/login` | `{ "email": "...", "password": "..." }` | Log in, returns JWT |
+| `POST` | `/auth/forgot-password` | `{ "email": "..." }` | Send a password-reset link (always returns 200) |
+| `POST` | `/auth/reset-password` | `{ "token": "...", "password": "..." }` | Set a new password using a reset token |
+
+#### Password reset flow
+
+1. User visits `/forgot-password` and submits their email.
+2. The API generates a single-use token (valid for 1 hour), stores it, and emails a link to `FRONTEND_URL/reset-password?token=<token>`. If no SMTP is configured the link is printed to the API logs.
+3. User clicks the link, enters a new password on `/reset-password`.
+4. The API validates the token (not expired, not already used), updates the password hash, and marks the token as used.
+5. User is redirected to the login page.
 
 ### Flights
 
@@ -197,9 +221,9 @@ cheapflights/
 ├── api/
 │   ├── main.py              # FastAPI app, CORS, startup event
 │   ├── database.py          # SQLAlchemy engine + session + get_db
-│   ├── models.py            # ORM models: User, Route, Flight, Alert
+│   ├── models.py            # ORM models: User, Route, Flight, Alert, PasswordResetToken
 │   ├── routers/
-│   │   ├── auth.py          # POST /auth/register, POST /auth/login
+│   │   ├── auth.py          # register, login, forgot-password, reset-password
 │   │   └── flights.py       # GET /flights/search + Ryanair API logic
 │   ├── tests/
 │   │   ├── conftest.py      # SQLite test client + fixtures
@@ -212,8 +236,8 @@ cheapflights/
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx          # Router (Login, Register, Search)
-│   │   ├── pages/           # Login.tsx, Register.tsx, Search.tsx
+│   │   ├── App.tsx          # Router (Login, Register, ForgotPassword, ResetPassword, Search)
+│   │   ├── pages/           # Login, Register, ForgotPassword, ResetPassword, Search
 │   │   ├── components/      # AirportInput, DateRangePicker, FlightList, PriceSuggestions
 │   │   └── data/
 │   │       └── airports.ts  # IATA code database
@@ -239,6 +263,7 @@ cheapflights/
 
 ## Roadmap
 
+- [x] Password reset via email
 - [ ] Price alert emails when a monitored route drops below a threshold
 - [ ] Saved routes per user account
 - [ ] Return-trip total in the main results view
