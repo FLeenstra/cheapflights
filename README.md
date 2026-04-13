@@ -10,7 +10,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 - **Price suggestions** — cheapest outbound + inbound prices for 7 date combinations (−3 to +3 days)
 - **Airport autocomplete** — fast local search across all IATA codes
 - **User accounts** — register, log in, and reset your password via email
-- **Price alerts** — schema in place; alert when a route drops below your threshold
+- **Saved searches** — save any route search to your account with an optional target price
 - **Fully containerised** — one `docker compose up` gets you a running stack
 
 ---
@@ -114,6 +114,28 @@ The API creates all database tables and a default admin account on first startup
 | `POST` | `/auth/login` | `{ "email": "...", "password": "..." }` | Log in, returns JWT |
 | `POST` | `/auth/forgot-password` | `{ "email": "..." }` | Send a password-reset link (always returns 200) |
 | `POST` | `/auth/reset-password` | `{ "token": "...", "password": "..." }` | Set a new password using a reset token |
+
+### Routes
+
+All routes endpoints require an `Authorization: Bearer <token>` header.
+
+| Method | Path | Body | Description |
+|---|---|---|---|
+| `POST` | `/routes/` | see below | Save a route search to the authenticated user's account |
+
+#### Save route body
+
+```json
+{
+  "origin": "DUB",
+  "destination": "BCN",
+  "date_from": "2025-08-01",
+  "date_to": "2025-08-08",
+  "alert_price": 49
+}
+```
+
+`alert_price` is optional. When provided it must be a whole number (integer) — no decimals. Returns `{ "id": "<uuid>" }` on success.
 
 #### Password reset flow
 
@@ -223,8 +245,9 @@ cheapflights/
 │   ├── database.py          # SQLAlchemy engine + session + get_db
 │   ├── models.py            # ORM models: User, Route, Flight, Alert, PasswordResetToken
 │   ├── routers/
-│   │   ├── auth.py          # register, login, forgot-password, reset-password
-│   │   └── flights.py       # GET /flights/search + Ryanair API logic
+│   │   ├── auth.py          # register, login, forgot-password, reset-password + JWT dependency
+│   │   ├── flights.py       # GET /flights/search + Ryanair API logic
+│   │   └── routes.py        # POST /routes/ — save a route search
 │   ├── tests/
 │   │   ├── conftest.py      # SQLite test client + fixtures
 │   │   ├── test_auth.py
@@ -238,6 +261,7 @@ cheapflights/
 │   ├── src/
 │   │   ├── App.tsx          # Router (Login, Register, ForgotPassword, ResetPassword, Search)
 │   │   ├── pages/           # Login, Register, ForgotPassword, ResetPassword, Search
+│   │   │                    # Search includes the save-route panel
 │   │   ├── components/      # AirportInput, DateRangePicker, FlightList, PriceSuggestions
 │   │   └── data/
 │   │       └── airports.ts  # IATA code database
@@ -264,8 +288,8 @@ cheapflights/
 ## Roadmap
 
 - [x] Password reset via email
-- [ ] Price alert emails when a monitored route drops below a threshold
-- [ ] Saved routes per user account
+- [x] Save route searches with optional target price per user account
+- [ ] Price alert emails when a saved route drops below the target price
 - [ ] Return-trip total in the main results view
 - [ ] Support for multi-month searches
 - [ ] Other airlines beyond Ryanair
