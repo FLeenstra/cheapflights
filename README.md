@@ -139,6 +139,8 @@ All routes endpoints require an `Authorization: Bearer <token>` header.
 
 `alert_price` is optional. When provided it must be a whole number (integer, no decimals) and represents the **maximum combined price for the full return trip** (outbound + inbound). Returns `{ "id": "<uuid>" }` on success.
 
+Saving a route with the same `origin`, `destination`, `date_from`, and `date_to` as an existing saved search for the same user returns **409 Conflict**, regardless of the `alert_price` value.
+
 #### Password reset flow
 
 1. User visits `/forgot-password` and submits their email.
