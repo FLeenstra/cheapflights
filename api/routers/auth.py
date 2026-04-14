@@ -149,8 +149,8 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
 
     try:
         with smtplib.SMTP(host, port) as smtp:
-            smtp.starttls()
             if smtp_user:
+                smtp.starttls()
                 smtp.login(smtp_user, smtp_password)
             smtp.send_message(msg)
     except Exception as exc:
