@@ -5,14 +5,15 @@ import uuid as uuid_module
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 
-from fastapi import APIRouter, Depends, HTTPException, Security
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.orm import Session
 
 from database import get_db
+from limiter import limiter
 from models import PasswordResetToken, User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -22,16 +23,23 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
+_COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
 
-_bearer = HTTPBearer()
+_bearer = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Security(_bearer),
+    credentials: HTTPAuthorizationCredentials | None = Security(_bearer),
+    access_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
 ) -> User:
+    # Explicit Bearer token takes priority (API clients / tests that pass tokens directly).
+    # Cookie used as fallback when no Authorization header is present (browser flow).
+    token = credentials.credentials if credentials is not None else access_token
+    if token is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str | None = payload.get("sub")
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
@@ -43,6 +51,17 @@ def get_current_user(
     return user
 
 
+def _set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=_COOKIE_SECURE,
+        max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,
+    )
+
+
 def create_token(user_id: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
     return jwt.encode({"sub": user_id, "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
@@ -52,10 +71,26 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
 
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if len(v) > 128:
+            raise ValueError("Password must be at most 128 characters")
+        return v
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_length(cls, v: str) -> str:
+        if len(v) > 128:
+            raise ValueError("Password must be at most 128 characters")
+        return v
 
 
 class TokenResponse(BaseModel):
@@ -70,6 +105,22 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     password: str
+
+    @field_validator("token")
+    @classmethod
+    def validate_token(cls, v: str) -> str:
+        if len(v) > 128:
+            raise ValueError("Invalid token")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if len(v) > 128:
+            raise ValueError("Password must be at most 128 characters")
+        return v
 
 
 def _send_reset_email(to_email: str, reset_url: str) -> None:
@@ -108,26 +159,38 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-def register(body: RegisterRequest, db: Session = Depends(get_db)):
+def register(body: RegisterRequest, response: Response, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(email=body.email, password_hash=pwd_context.hash(body.password))
     db.add(user)
     db.commit()
     db.refresh(user)
-    return TokenResponse(access_token=create_token(str(user.id)))
+    token = create_token(str(user.id))
+    _set_auth_cookie(response, token)
+    return TokenResponse(access_token=token)
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, body: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not pwd_context.verify(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    return TokenResponse(access_token=create_token(str(user.id)))
+    token = create_token(str(user.id))
+    _set_auth_cookie(response, token)
+    return TokenResponse(access_token=token)
+
+
+@router.post("/logout", status_code=200)
+def logout(response: Response):
+    response.delete_cookie(key="access_token", samesite="lax", httponly=True)
+    return {"message": "Logged out"}
 
 
 @router.post("/forgot-password", status_code=200)
-def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
     if user:
         # Invalidate any existing unused tokens for this user

@@ -82,13 +82,10 @@ export default function Search() {
     setSaveError('')
     setSaveSuccess(false)
     try {
-      const token = localStorage.getItem('token')
       const res = await fetch('/api/routes/', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           origin: origin.iata,
           destination: destination.iata,
@@ -184,6 +181,7 @@ export default function Search() {
                     <input
                       type="text"
                       inputMode="numeric"
+                      maxLength={6}
                       value={alertPrice}
                       onChange={e => {
                         setSaveSuccess(false)

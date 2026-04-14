@@ -1,6 +1,7 @@
 import { MapPin } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { airports, type Airport } from '../data/airports'
+import { sanitizeText } from '../lib/sanitize'
 
 interface Props {
   label: string
@@ -97,9 +98,10 @@ export default function AirportInput({ label, placeholder, value, onChange }: Pr
             setQuery('')
           }}
           onChange={e => {
-            setQuery(e.target.value)
+            setQuery(sanitizeText(e.target.value))
             setOpen(true)
           }}
+          maxLength={30}
           onKeyDown={handleKeyDown}
           className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition"
         />

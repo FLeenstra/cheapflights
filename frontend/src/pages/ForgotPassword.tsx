@@ -1,6 +1,7 @@
 import { Plane } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { sanitizeEmail } from '../lib/sanitize'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -110,8 +111,9 @@ export default function ForgotPassword() {
                   <input
                     type="email"
                     required
+                    maxLength={254}
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
+                    onChange={e => setEmail(sanitizeEmail(e.target.value))}
                     placeholder="you@example.com"
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition"
                   />

@@ -1,6 +1,7 @@
 import { Plane } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { sanitizeText } from '../lib/sanitize'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
@@ -131,8 +132,9 @@ export default function ResetPassword() {
                   <input
                     type="password"
                     required
+                    maxLength={128}
                     value={password}
-                    onChange={e => setPassword(e.target.value)}
+                    onChange={e => setPassword(sanitizeText(e.target.value))}
                     placeholder="At least 8 characters"
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition"
                   />
@@ -145,8 +147,9 @@ export default function ResetPassword() {
                   <input
                     type="password"
                     required
+                    maxLength={128}
                     value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
+                    onChange={e => setConfirmPassword(sanitizeText(e.target.value))}
                     placeholder="••••••••"
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition"
                   />

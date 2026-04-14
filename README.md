@@ -96,6 +96,7 @@ The API creates all database tables and a default admin account on first startup
 | `SECRET_KEY` | Yes | `change-me-in-production` | JWT signing key — **change this** |
 | `DATABASE_URL` | No | derived from the above | Full SQLAlchemy connection string (set automatically by Docker Compose) |
 | `FRONTEND_URL` | No | `http://localhost:5173` | Base URL used in password-reset email links |
+| `COOKIE_SECURE` | No | `false` | Set to `true` in production (HTTPS) to add the `Secure` flag to the auth cookie |
 | `SMTP_HOST` | No | — | SMTP server hostname. If unset, reset links are logged to stdout |
 | `SMTP_PORT` | No | `587` | SMTP port (STARTTLS) |
 | `SMTP_USER` | No | — | SMTP login username |
@@ -110,14 +111,17 @@ The API creates all database tables and a default admin account on first startup
 
 | Method | Path | Body | Description |
 |---|---|---|---|
-| `POST` | `/auth/register` | `{ "email": "...", "password": "..." }` | Register a new user, returns JWT |
-| `POST` | `/auth/login` | `{ "email": "...", "password": "..." }` | Log in, returns JWT |
-| `POST` | `/auth/forgot-password` | `{ "email": "..." }` | Send a password-reset link (always returns 200) |
+| `POST` | `/auth/register` | `{ "email": "...", "password": "..." }` | Register a new user; sets httpOnly auth cookie and returns JWT |
+| `POST` | `/auth/login` | `{ "email": "...", "password": "..." }` | Log in; sets httpOnly auth cookie and returns JWT. **Rate limited: 10 requests/minute per IP** |
+| `POST` | `/auth/logout` | — | Clear the auth cookie |
+| `POST` | `/auth/forgot-password` | `{ "email": "..." }` | Send a password-reset link (always returns 200). **Rate limited: 5 requests/minute per IP** |
 | `POST` | `/auth/reset-password` | `{ "token": "...", "password": "..." }` | Set a new password using a reset token |
+
+Password rules: minimum 8 characters, maximum 128 characters.
 
 ### Routes
 
-All routes endpoints require an `Authorization: Bearer <token>` header.
+All routes endpoints require authentication. The browser sends the httpOnly cookie automatically. API clients can alternatively pass an `Authorization: Bearer <token>` header.
 
 | Method | Path | Body / params | Description |
 |---|---|---|---|
@@ -153,7 +157,7 @@ Saving a route with the same `origin`, `destination`, `date_from`, and `date_to`
 
 | Method | Path | Query params | Description |
 |---|---|---|---|
-| `GET` | `/flights/search` | `origin`, `destination`, `date_from`, `date_to` | Search flights for a route and date range |
+| `GET` | `/flights/search` | `origin`, `destination`, `date_from`, `date_to` | Search flights for a route and date range (max 90 days between dates) |
 
 #### Example request
 
@@ -245,11 +249,12 @@ npm test
 ```
 cheapflights/
 ├── api/
-│   ├── main.py              # FastAPI app, CORS, startup event
+│   ├── main.py              # FastAPI app, CORS, security headers, startup event
 │   ├── database.py          # SQLAlchemy engine + session + get_db
+│   ├── limiter.py           # Shared slowapi rate-limiter instance
 │   ├── models.py            # ORM models: User, Route, Flight, Alert, PasswordResetToken
 │   ├── routers/
-│   │   ├── auth.py          # register, login, forgot-password, reset-password + JWT dependency
+│   │   ├── auth.py          # register, login, logout, forgot-password, reset-password + JWT dependency
 │   │   ├── flights.py       # GET /flights/search + Ryanair API logic
 │   │   └── routes.py        # GET/POST/DELETE /routes/
 │   ├── tests/

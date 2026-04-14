@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from database import Base, get_db
+from limiter import limiter
 from main import app
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -15,6 +16,14 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def disable_rate_limiter():
+    """Disable rate limiting for all tests to prevent cross-test contamination."""
+    limiter.enabled = False
+    yield
+    limiter.enabled = True
 
 
 @pytest.fixture(autouse=True)

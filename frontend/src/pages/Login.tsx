@@ -1,6 +1,7 @@
 import { Plane } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { sanitizeEmail, sanitizeText } from '../lib/sanitize'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -17,11 +18,11 @@ export default function Login() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail ?? 'Login failed')
-      localStorage.setItem('token', data.access_token)
       navigate('/search')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -88,8 +89,9 @@ export default function Login() {
               <input
                 type="email"
                 required
+                maxLength={254}
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={e => setEmail(sanitizeEmail(e.target.value))}
                 placeholder="you@example.com"
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition"
               />
@@ -102,8 +104,9 @@ export default function Login() {
               <input
                 type="password"
                 required
+                maxLength={128}
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={e => setPassword(sanitizeText(e.target.value))}
                 placeholder="••••••••"
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition"
               />

@@ -1,5 +1,6 @@
-from datetime import date, timedelta
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import date, timedelta
 
 import requests
 from fastapi import APIRouter, HTTPException
@@ -114,13 +115,22 @@ def _search_date(origin: str, destination: str, d: date) -> tuple[list, str | No
     return sorted(flights, key=lambda f: f["price"]), None
 
 
+_IATA_RE = re.compile(r"^[A-Z]{3}$")
+
+
 @router.get("/search")
 def search_flights(origin: str, destination: str, date_from: date, date_to: date):
+    origin = origin.strip().upper()
+    destination = destination.strip().upper()
+
+    if not _IATA_RE.match(origin) or not _IATA_RE.match(destination):
+        raise HTTPException(status_code=422, detail="origin and destination must be 3-letter IATA codes")
+
     if date_from > date_to:
         raise HTTPException(status_code=400, detail="date_from must be before date_to")
 
-    origin = origin.upper()
-    destination = destination.upper()
+    if (date_to - date_from).days > 90:
+        raise HTTPException(status_code=400, detail="Date range must not exceed 90 days")
 
     # Fetch selected-date flights and all suggestion cheapest-prices in parallel
     with ThreadPoolExecutor(max_workers=20) as ex:

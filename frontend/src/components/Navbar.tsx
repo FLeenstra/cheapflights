@@ -5,8 +5,8 @@ export default function Navbar() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
 
-  function handleLogout() {
-    localStorage.removeItem('token')
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
     navigate('/login')
   }
 

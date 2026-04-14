@@ -14,11 +14,6 @@ interface SavedRoute {
   created_at: string
 }
 
-function authHeaders() {
-  const token = localStorage.getItem('token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
 export default function SavedSearches() {
   const navigate = useNavigate()
   const [routes, setRoutes] = useState<SavedRoute[]>([])
@@ -27,7 +22,7 @@ export default function SavedSearches() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/routes/', { headers: authHeaders() })
+    fetch('/api/routes/', { credentials: 'include' })
       .then(res => {
         if (res.status === 401 || res.status === 403) {
           navigate('/login')
@@ -47,7 +42,7 @@ export default function SavedSearches() {
     try {
       const res = await fetch(`/api/routes/${id}`, {
         method: 'DELETE',
-        headers: authHeaders(),
+        credentials: 'include',
       })
       if (!res.ok) throw new Error('Delete failed')
       setRoutes(prev => prev.filter(r => r.id !== id))

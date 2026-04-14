@@ -83,6 +83,50 @@ class TestFlightsSearch:
         assert res.status_code == 400
         assert "date_from" in res.json()["detail"].lower()
 
+    def test_date_range_over_90_days_returns_400(self, client):
+        res = client.get("/flights/search", params={
+            "origin": "DUB",
+            "destination": "BCN",
+            "date_from": "2025-06-01",
+            "date_to": "2025-09-30",  # 121 days
+        })
+        assert res.status_code == 400
+        assert "90" in res.json()["detail"]
+
+    def test_date_range_exactly_90_days_is_allowed(self, client):
+        def fake_get(url, **kwargs):
+            if "timtbl" in url:
+                return MagicMock(ok=True, **{"json.return_value": {"days": []}})
+            return _empty_fares_response()
+
+        with patch("routers.flights.requests.get", side_effect=fake_get):
+            res = client.get("/flights/search", params={
+                "origin": "DUB",
+                "destination": "BCN",
+                "date_from": "2025-06-01",
+                "date_to": "2025-08-30",  # exactly 90 days
+            })
+        assert res.status_code == 200
+
+    def test_invalid_iata_code_returns_422(self, client):
+        res = client.get("/flights/search", params={
+            "origin": "DUBL",
+            "destination": "BCN",
+            "date_from": "2025-06-01",
+            "date_to": "2025-06-08",
+        })
+        assert res.status_code == 422
+        assert "iata" in res.json()["detail"].lower()
+
+    def test_numeric_iata_code_returns_422(self, client):
+        res = client.get("/flights/search", params={
+            "origin": "123",
+            "destination": "BCN",
+            "date_from": "2025-06-01",
+            "date_to": "2025-06-08",
+        })
+        assert res.status_code == 422
+
     def test_successful_search_structure(self, client):
         """A successful search returns outbound, inbound, suggestions, currency."""
 
