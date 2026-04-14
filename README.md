@@ -80,9 +80,12 @@ docker compose up --build
 | Frontend | http://localhost:5173 |
 | API | http://localhost:8000 |
 | API docs (Swagger) | http://localhost:8000/docs |
+| Mailpit (catch-all email UI) | http://localhost:8025 |
 | PostgreSQL | localhost:5432 |
 
 The API creates all database tables and a default admin account on first startup.
+
+Password-reset emails are caught by **Mailpit** — open http://localhost:8025 to read them. No real email is sent in local development. To use a real mail provider in production, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` to your provider's credentials.
 
 ---
 
