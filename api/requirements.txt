@@ -11,10 +11,10 @@ passlib[bcrypt]==1.7.4
 bcrypt==3.2.2
 python-jose[cryptography]==3.5.0
 
-email-validator==2.2.0
-requests==2.32.3
+email-validator==2.3.0
+requests==2.33.1
 
 # testing
 pytest==9.0.3
 httpx==0.28.1
-pytest-cov==6.1.0
+pytest-cov==7.1.0
