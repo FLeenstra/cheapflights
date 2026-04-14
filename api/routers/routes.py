@@ -115,6 +115,52 @@ def save_route(
     return {"id": str(route.id)}
 
 
+@router.put("/{route_id}", status_code=200)
+def update_route(
+    route_id: str,
+    body: SaveRouteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        rid = uuid_module.UUID(route_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Route not found")
+
+    route = db.query(Route).filter(
+        Route.id == rid,
+        Route.user_id == current_user.id,
+    ).first()
+    if not route:
+        raise HTTPException(status_code=404, detail="Route not found")
+
+    if body.date_from > body.date_to:
+        raise HTTPException(status_code=400, detail="date_from must be before date_to")
+
+    duplicate = db.query(Route).filter(
+        Route.user_id == current_user.id,
+        Route.origin == body.origin,
+        Route.destination == body.destination,
+        Route.date_from == body.date_from,
+        Route.date_to == body.date_to,
+        Route.id != rid,
+    ).first()
+    if duplicate:
+        raise HTTPException(
+            status_code=409,
+            detail="You already have a saved search for this route and dates.",
+        )
+
+    route.origin = body.origin
+    route.destination = body.destination
+    route.date_from = body.date_from
+    route.date_to = body.date_to
+    route.alert_price = Decimal(body.alert_price) if body.alert_price is not None else None
+    db.commit()
+    db.refresh(route)
+    return {"id": str(route.id)}
+
+
 @router.delete("/{route_id}", status_code=204)
 def delete_route(
     route_id: str,

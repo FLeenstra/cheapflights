@@ -1,7 +1,8 @@
-import { ArrowRight, Bell, BellOff, Trash2 } from 'lucide-react'
+import { ArrowRight, Bell, BellOff, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
+import { airports } from '../data/airports'
 
 interface SavedRoute {
   id: string
@@ -36,6 +37,24 @@ export default function SavedSearches() {
       .catch(() => setError('Failed to load saved searches'))
       .finally(() => setLoading(false))
   }, [navigate])
+
+  function handleEdit(route: SavedRoute) {
+    const originAirport = airports.find(a => a.iata === route.origin)
+    const destinationAirport = airports.find(a => a.iata === route.destination)
+    if (!originAirport || !destinationAirport) return
+    navigate('/search', {
+      state: {
+        editRoute: {
+          id: route.id,
+          origin: originAirport,
+          destination: destinationAirport,
+          dateFrom: new Date(route.date_from + 'T12:00:00'),
+          dateTo: new Date(route.date_to + 'T12:00:00'),
+          alertPrice: route.alert_price?.toString() ?? '',
+        },
+      },
+    })
+  }
 
   async function handleDelete(id: string) {
     setDeletingId(id)
@@ -121,6 +140,15 @@ export default function SavedSearches() {
                     </div>
                   )}
                 </div>
+
+                {/* Edit */}
+                <button
+                  onClick={() => handleEdit(route)}
+                  aria-label="Edit saved search"
+                  className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
 
                 {/* Delete */}
                 <button

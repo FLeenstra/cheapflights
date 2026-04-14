@@ -10,7 +10,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 - **Price suggestions** — cheapest outbound + inbound prices for 7 date combinations (−3 to +3 days)
 - **Airport autocomplete** — fast local search across all IATA codes
 - **User accounts** — register, log in, and reset your password via email
-- **Saved searches** — save any route search to your account with an optional target price; view and delete them from a dedicated page
+- **Saved searches** — save any route search to your account with an optional target price; view, edit, and delete them from a dedicated page
 - **Fully containerised** — one `docker compose up` gets you a running stack
 
 ---
@@ -127,6 +127,7 @@ All routes endpoints require authentication. The browser sends the httpOnly cook
 |---|---|---|---|
 | `GET` | `/routes/` | — | List all saved routes for the authenticated user (newest first) |
 | `POST` | `/routes/` | see below | Save a route search to the authenticated user's account |
+| `PUT` | `/routes/{id}` | see below | Update an existing saved route (same body as POST) |
 | `DELETE` | `/routes/{id}` | — | Delete a saved route (404 if not found or owned by another user) |
 
 #### Save route body

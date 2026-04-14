@@ -1,5 +1,6 @@
 import { BookmarkCheck, Search as SearchIcon } from 'lucide-react'
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import AirportInput from '../components/AirportInput'
 import DateRangePicker from '../components/DateRangePicker'
 import FlightList, { type Flight } from '../components/FlightList'
@@ -29,6 +30,8 @@ function fromISO(s: string) {
 }
 
 export default function Search() {
+  const location = useLocation()
+
   const [origin, setOrigin] = useState<Airport | null>(null)
   const [destination, setDestination] = useState<Airport | null>(null)
   const [dateFrom, setDateFrom] = useState<Date | undefined>()
@@ -38,12 +41,26 @@ export default function Search() {
   const [loading, setLoading] = useState(false)
   const [formError, setFormError] = useState('')
 
-  // Save-route state
+  // Save / edit route state
+  const [editRouteId, setEditRouteId] = useState<string | null>(null)
   const [trackRoute, setTrackRoute] = useState(false)
   const [alertPrice, setAlertPrice] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
+
+  // Pre-fill from navigation state when arriving from the edit button
+  useEffect(() => {
+    const edit = (location.state as { editRoute?: { id: string; origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; alertPrice: string } } | null)?.editRoute
+    if (!edit) return
+    setEditRouteId(edit.id)
+    setOrigin(edit.origin)
+    setDestination(edit.destination)
+    setDateFrom(edit.dateFrom)
+    setDateTo(edit.dateTo)
+    setAlertPrice(edit.alertPrice)
+    setTrackRoute(true)
+  }, [location.state])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -82,8 +99,10 @@ export default function Search() {
     setSaveError('')
     setSaveSuccess(false)
     try {
-      const res = await fetch('/api/routes/', {
-        method: 'POST',
+      const url = editRouteId ? `/api/routes/${editRouteId}` : '/api/routes/'
+      const method = editRouteId ? 'PUT' : 'POST'
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
@@ -95,7 +114,7 @@ export default function Search() {
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.detail ?? 'Failed to save route')
+      if (!res.ok) throw new Error(data.detail ?? (editRouteId ? 'Failed to update route' : 'Failed to save route'))
       setSaveSuccess(true)
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : 'Something went wrong')
@@ -168,7 +187,9 @@ export default function Search() {
                   }}
                   className="w-4 h-4 rounded accent-brand-600 cursor-pointer"
                 />
-                <span className="text-sm font-medium text-gray-700">Start route search</span>
+                <span className="text-sm font-medium text-gray-700">
+                  {editRouteId ? 'Edit saved search' : 'Start route search'}
+                </span>
               </label>
 
               {trackRoute && (
@@ -203,7 +224,7 @@ export default function Search() {
                     className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
                   >
                     <BookmarkCheck className="w-4 h-4" />
-                    {saving ? 'Saving…' : 'Save search'}
+                    {saving ? (editRouteId ? 'Updating…' : 'Saving…') : (editRouteId ? 'Update search' : 'Save search')}
                   </button>
                 </div>
               )}
@@ -211,7 +232,7 @@ export default function Search() {
               {trackRoute && saveSuccess && (
                 <div className="mt-3 flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
                   <BookmarkCheck className="w-4 h-4 shrink-0" />
-                  Route saved successfully.
+                  {editRouteId ? 'Route updated successfully.' : 'Route saved successfully.'}
                 </div>
               )}
               {trackRoute && saveError && (

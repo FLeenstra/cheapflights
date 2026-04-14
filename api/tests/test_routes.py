@@ -312,3 +312,147 @@ def test_delete_route_wrong_user(client, db):
 def test_delete_route_requires_auth(client):
     res = client.delete("/routes/some-id")
     assert res.status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
+# PUT /routes/{id}
+# ---------------------------------------------------------------------------
+
+def test_update_route_success(client, db):
+    token = _register_and_token(client, "upd@test.com")
+    save_res = client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "alert_price": 50,
+    }, headers=_auth(token))
+    route_id = save_res.json()["id"]
+
+    res = client.put(f"/routes/{route_id}", json={
+        "origin": "AMS", "destination": "MAD",
+        "date_from": "2025-09-01", "date_to": "2025-09-08",
+        "alert_price": 80,
+    }, headers=_auth(token))
+    assert res.status_code == 200
+    assert res.json()["id"] == route_id
+
+    route = db.query(Route).first()
+    assert route.origin == "AMS"
+    assert route.destination == "MAD"
+    assert int(route.alert_price) == 80
+
+
+def test_update_route_clears_alert_price(client, db):
+    token = _register_and_token(client, "updclr@test.com")
+    save_res = client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "alert_price": 50,
+    }, headers=_auth(token))
+    route_id = save_res.json()["id"]
+
+    res = client.put(f"/routes/{route_id}", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+    }, headers=_auth(token))
+    assert res.status_code == 200
+    assert db.query(Route).first().alert_price is None
+
+
+def test_update_route_not_found(client):
+    token = _register_and_token(client, "updnf@test.com")
+    import uuid
+    res = client.put(f"/routes/{uuid.uuid4()}", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+    }, headers=_auth(token))
+    assert res.status_code == 404
+
+
+def test_update_route_invalid_uuid(client):
+    token = _register_and_token(client, "updinv@test.com")
+    res = client.put("/routes/not-a-uuid", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+    }, headers=_auth(token))
+    assert res.status_code == 404
+
+
+def test_update_route_wrong_user(client, db):
+    token_owner = _register_and_token(client, "updowner@test.com")
+    token_other = _register_and_token(client, "updother@test.com")
+
+    save_res = client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+    }, headers=_auth(token_owner))
+    route_id = save_res.json()["id"]
+
+    res = client.put(f"/routes/{route_id}", json={
+        "origin": "AMS", "destination": "MAD",
+        "date_from": "2025-09-01", "date_to": "2025-09-08",
+    }, headers=_auth(token_other))
+    assert res.status_code == 404
+    assert db.query(Route).first().origin == "DUB"
+
+
+def test_update_route_duplicate_rejected(client):
+    token = _register_and_token(client, "upddup@test.com")
+    client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+    }, headers=_auth(token))
+    save_res = client.post("/routes/", json={
+        "origin": "AMS", "destination": "MAD",
+        "date_from": "2025-09-01", "date_to": "2025-09-08",
+    }, headers=_auth(token))
+    route_id = save_res.json()["id"]
+
+    # Try to update second route to clash with first
+    res = client.put(f"/routes/{route_id}", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+    }, headers=_auth(token))
+    assert res.status_code == 409
+    assert "already" in res.json()["detail"].lower()
+
+
+def test_update_route_same_values_allowed(client):
+    """Updating a route to its own current values must not trigger the duplicate check."""
+    token = _register_and_token(client, "updsame@test.com")
+    save_res = client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "alert_price": 50,
+    }, headers=_auth(token))
+    route_id = save_res.json()["id"]
+
+    res = client.put(f"/routes/{route_id}", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "alert_price": 75,
+    }, headers=_auth(token))
+    assert res.status_code == 200
+
+
+def test_update_route_date_from_after_date_to(client):
+    token = _register_and_token(client, "upddates@test.com")
+    save_res = client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+    }, headers=_auth(token))
+    route_id = save_res.json()["id"]
+
+    res = client.put(f"/routes/{route_id}", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-10", "date_to": "2025-08-01",
+    }, headers=_auth(token))
+    assert res.status_code == 400
+
+
+def test_update_route_requires_auth(client):
+    import uuid
+    res = client.put(f"/routes/{uuid.uuid4()}", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+    })
+    assert res.status_code in (401, 403)
