@@ -41,6 +41,7 @@ class Route(Base):
     destination: Mapped[str] = mapped_column(String(3), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     alert_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    notify_available: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     date_from: Mapped[date] = mapped_column(Date, nullable=False)
     date_to: Mapped[date] = mapped_column(Date, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

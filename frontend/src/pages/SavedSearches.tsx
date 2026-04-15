@@ -1,4 +1,4 @@
-import { ArrowRight, Bell, BellOff, Pencil, Trash2 } from 'lucide-react'
+import { ArrowRight, Bell, BellOff, Pencil, Radio, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
@@ -11,12 +11,13 @@ interface SavedRoute {
   date_from: string
   date_to: string
   alert_price: number | null
+  notify_available: boolean
   is_active: boolean
   created_at: string
 }
 
 type SortKey = 'newest' | 'oldest' | 'origin' | 'destination' | 'departure'
-type AlertFilter = 'all' | 'with' | 'without'
+type AlertFilter = 'all' | 'price' | 'available' | 'none'
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'newest',      label: 'Newest first' },
@@ -80,6 +81,7 @@ export default function SavedSearches() {
           dateFrom: new Date(route.date_from + 'T12:00:00'),
           dateTo: new Date(route.date_to + 'T12:00:00'),
           alertPrice: route.alert_price?.toString() ?? '',
+          notifyAvailable: route.notify_available,
         },
       },
     })
@@ -104,8 +106,9 @@ export default function SavedSearches() {
   const visibleRoutes = useMemo(() => {
     let list = [...routes]
 
-    if (alertFilter === 'with')    list = list.filter(r => r.alert_price !== null)
-    if (alertFilter === 'without') list = list.filter(r => r.alert_price === null)
+    if (alertFilter === 'price')     list = list.filter(r => r.alert_price !== null)
+    if (alertFilter === 'available') list = list.filter(r => r.notify_available)
+    if (alertFilter === 'none')      list = list.filter(r => r.alert_price === null && !r.notify_available)
 
     list.sort((a, b) => {
       switch (sortBy) {
@@ -161,17 +164,22 @@ export default function SavedSearches() {
 
             {/* Alert filter */}
             <div className="flex rounded-xl border border-gray-200 bg-white overflow-hidden text-sm">
-              {(['all', 'with', 'without'] as AlertFilter[]).map(f => (
+              {([
+                { value: 'all',       label: 'All' },
+                { value: 'price',     label: 'Price alert' },
+                { value: 'available', label: 'Availability' },
+                { value: 'none',      label: 'No alert' },
+              ] as { value: AlertFilter; label: string }[]).map(f => (
                 <button
-                  key={f}
-                  onClick={() => setAlertFilter(f)}
+                  key={f.value}
+                  onClick={() => setAlertFilter(f.value)}
                   className={`px-3 py-2 transition ${
-                    alertFilter === f
+                    alertFilter === f.value
                       ? 'bg-brand-600 text-white font-medium'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
-                  {f === 'all' ? 'All' : f === 'with' ? 'With alert' : 'No alert'}
+                  {f.label}
                 </button>
               ))}
             </div>
@@ -219,14 +227,21 @@ export default function SavedSearches() {
                   </div>
                 </button>
 
-                {/* Alert price */}
-                <div className="shrink-0 text-sm text-right">
-                  {route.alert_price !== null ? (
+                {/* Badges */}
+                <div className="shrink-0 flex flex-col items-end gap-1.5 text-sm">
+                  {route.alert_price !== null && (
                     <div className="flex items-center gap-1.5 text-brand-700 bg-brand-50 px-3 py-1.5 rounded-lg font-medium">
                       <Bell className="w-3.5 h-3.5" />
-                      Max total €{route.alert_price}
+                      Max €{route.alert_price}
                     </div>
-                  ) : (
+                  )}
+                  {route.notify_available && (
+                    <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg font-medium">
+                      <Radio className="w-3.5 h-3.5" />
+                      Availability
+                    </div>
+                  )}
+                  {route.alert_price === null && !route.notify_available && (
                     <div className="flex items-center gap-1.5 text-gray-400 px-3 py-1.5">
                       <BellOff className="w-3.5 h-3.5" />
                       No alert

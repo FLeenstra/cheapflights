@@ -22,7 +22,8 @@ class SaveRouteRequest(BaseModel):
     destination: str
     date_from: date
     date_to: date
-    alert_price: int | None = None  # whole euros only; None means no alert
+    alert_price: int | None = None      # whole euros only; None means no price alert
+    notify_available: bool = False      # notify when any flight becomes available
 
     @field_validator("origin", "destination")
     @classmethod
@@ -47,6 +48,7 @@ class RouteOut(BaseModel):
     date_from: date
     date_to: date
     alert_price: int | None
+    notify_available: bool
     is_active: bool
     created_at: datetime
 
@@ -72,6 +74,7 @@ def list_routes(
             date_from=r.date_from,
             date_to=r.date_to,
             alert_price=int(r.alert_price) if r.alert_price is not None else None,
+            notify_available=r.notify_available,
             is_active=r.is_active,
             created_at=r.created_at,
         )
@@ -108,6 +111,7 @@ def save_route(
         date_from=body.date_from,
         date_to=body.date_to,
         alert_price=Decimal(body.alert_price) if body.alert_price is not None else None,
+        notify_available=body.notify_available,
     )
     db.add(route)
     db.commit()
@@ -156,6 +160,7 @@ def update_route(
     route.date_from = body.date_from
     route.date_to = body.date_to
     route.alert_price = Decimal(body.alert_price) if body.alert_price is not None else None
+    route.notify_available = body.notify_available
     db.commit()
     db.refresh(route)
     return {"id": str(route.id)}

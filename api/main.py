@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from passlib.context import CryptContext
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
 
 from database import Base, SessionLocal, engine
 from limiter import limiter
@@ -45,6 +46,11 @@ ADMIN_PASSWORD = "Admin1234!"
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        conn.execute(text(
+            "ALTER TABLE routes ADD COLUMN IF NOT EXISTS "
+            "notify_available BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
     db = SessionLocal()
     try:
         if not db.query(User).filter(User.email == ADMIN_EMAIL).first():

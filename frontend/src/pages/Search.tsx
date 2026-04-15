@@ -45,13 +45,14 @@ export default function Search() {
   const [editRouteId, setEditRouteId] = useState<string | null>(null)
   const [trackRoute, setTrackRoute] = useState(false)
   const [alertPrice, setAlertPrice] = useState('')
+  const [notifyAvailable, setNotifyAvailable] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
 
   // Pre-fill from navigation state when arriving from the edit button
   useEffect(() => {
-    const edit = (location.state as { editRoute?: { id: string; origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; alertPrice: string } } | null)?.editRoute
+    const edit = (location.state as { editRoute?: { id: string; origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; alertPrice: string; notifyAvailable: boolean } } | null)?.editRoute
     if (!edit) return
     setEditRouteId(edit.id)
     setOrigin(edit.origin)
@@ -59,7 +60,21 @@ export default function Search() {
     setDateFrom(edit.dateFrom)
     setDateTo(edit.dateTo)
     setAlertPrice(edit.alertPrice)
+    setNotifyAvailable(edit.notifyAvailable)
     setTrackRoute(true)
+  }, [location.state])
+
+  // Immediately run a search when arriving from a saved-search card click
+  useEffect(() => {
+    const run = (location.state as { runSearch?: { origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date } } | null)?.runSearch
+    if (!run) return
+    setOrigin(run.origin)
+    setDestination(run.destination)
+    setDateFrom(run.dateFrom)
+    setDateTo(run.dateTo)
+    doSearch(run.origin, run.destination, run.dateFrom, run.dateTo)
+  // doSearch is stable (no deps change it) — only re-run when state changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state])
 
   async function handleSubmit(e: FormEvent) {
@@ -111,6 +126,7 @@ export default function Search() {
           date_from: toISO(dateFrom),
           date_to: toISO(dateTo),
           alert_price: alertPrice ? parseInt(alertPrice, 10) : null,
+          notify_available: notifyAvailable,
         }),
       })
       const data = await res.json()
@@ -181,6 +197,7 @@ export default function Search() {
                     setTrackRoute(e.target.checked)
                     if (!e.target.checked) {
                       setAlertPrice('')
+                      setNotifyAvailable(false)
                       setSaveError('')
                       setSaveSuccess(false)
                     }
@@ -193,39 +210,55 @@ export default function Search() {
               </label>
 
               {trackRoute && (
-                <div className="mt-4 flex flex-wrap items-end gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-0.5">
-                      Max total price (€) <span className="text-gray-400 font-normal">— optional</span>
-                    </label>
-                    <p className="text-xs text-gray-400 mb-1.5">Outbound + return combined</p>
+                <div className="mt-4 space-y-4">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-0.5">
+                        Max total price (€) <span className="text-gray-400 font-normal">— optional</span>
+                      </label>
+                      <p className="text-xs text-gray-400 mb-1.5">Outbound + return combined</p>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={alertPrice}
+                        onChange={e => {
+                          setSaveSuccess(false)
+                          setSaveError('')
+                          setAlertPrice(e.target.value.replace(/\D/g, ''))
+                        }}
+                        onKeyDown={e => {
+                          if (['.', ',', '-', '+', 'e', 'E'].includes(e.key)) e.preventDefault()
+                        }}
+                        placeholder="e.g. 100"
+                        className="w-36 px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveRoute}
+                      disabled={saving || !origin || !destination || !dateFrom || !dateTo}
+                      className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
+                    >
+                      <BookmarkCheck className="w-4 h-4" />
+                      {saving ? (editRouteId ? 'Updating…' : 'Saving…') : (editRouteId ? 'Update search' : 'Save search')}
+                    </button>
+                  </div>
+
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none w-fit">
                     <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={alertPrice}
+                      type="checkbox"
+                      checked={notifyAvailable}
                       onChange={e => {
                         setSaveSuccess(false)
                         setSaveError('')
-                        setAlertPrice(e.target.value.replace(/\D/g, ''))
+                        setNotifyAvailable(e.target.checked)
                       }}
-                      onKeyDown={e => {
-                        if (['.', ',', '-', '+', 'e', 'E'].includes(e.key)) e.preventDefault()
-                      }}
-                      placeholder="e.g. 100"
-                      className="w-36 px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition"
+                      className="w-4 h-4 rounded accent-brand-600 cursor-pointer"
                     />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleSaveRoute}
-                    disabled={saving || !origin || !destination || !dateFrom || !dateTo}
-                    className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
-                  >
-                    <BookmarkCheck className="w-4 h-4" />
-                    {saving ? (editRouteId ? 'Updating…' : 'Saving…') : (editRouteId ? 'Update search' : 'Save search')}
-                  </button>
+                    <span className="text-sm text-gray-700">Notify when flights become available</span>
+                  </label>
                 </div>
               )}
 
