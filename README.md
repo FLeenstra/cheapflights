@@ -88,6 +88,14 @@ docker compose up --build
 
 The API creates all database tables and a default admin account on first startup.
 
+### Default accounts
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@elcheeapo.com` | `Admin1234!` |
+
+The admin account is created automatically. Log in with these credentials to access the admin panel at `/admin`. Change the defaults via the `ADMIN_EMAIL` environment variable (and by updating the hardcoded password in `api/main.py`) before deploying to production.
+
 Password-reset emails are caught by **Mailpit** — open http://localhost:8025 to read them. No real email is sent in local development. To use a real mail provider in production, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` to your provider's credentials.
 
 ---
