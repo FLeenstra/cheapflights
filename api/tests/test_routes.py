@@ -154,6 +154,53 @@ def test_save_route_decimal_alert_price_rejected(client):
     assert res.status_code == 422
 
 
+def test_save_route_invalid_iata_returns_422(client):
+    token = _register_and_token(client, "iata@test.com")
+    res = client.post("/routes/", json={
+        "origin": "INVALID",
+        "destination": "BCN",
+        "date_from": "2025-08-01",
+        "date_to": "2025-08-08",
+    }, headers=_auth(token))
+    assert res.status_code == 422
+
+
+def test_save_route_zero_alert_price_rejected(client):
+    token = _register_and_token(client, "zero@test.com")
+    res = client.post("/routes/", json={
+        "origin": "DUB",
+        "destination": "BCN",
+        "date_from": "2025-08-01",
+        "date_to": "2025-08-08",
+        "alert_price": 0,
+    }, headers=_auth(token))
+    assert res.status_code == 422
+
+
+def test_save_route_with_notify_available(client, db):
+    token = _register_and_token(client, "notify@test.com")
+    res = client.post("/routes/", json={
+        "origin": "DUB",
+        "destination": "BCN",
+        "date_from": "2025-08-01",
+        "date_to": "2025-08-08",
+        "notify_available": True,
+    }, headers=_auth(token))
+    assert res.status_code == 201
+    assert db.query(Route).first().notify_available is True
+
+
+def test_save_route_notify_available_defaults_false(client, db):
+    token = _register_and_token(client, "notifydef@test.com")
+    client.post("/routes/", json={
+        "origin": "DUB",
+        "destination": "BCN",
+        "date_from": "2025-08-01",
+        "date_to": "2025-08-08",
+    }, headers=_auth(token))
+    assert db.query(Route).first().notify_available is False
+
+
 # ---------------------------------------------------------------------------
 # Auth
 # ---------------------------------------------------------------------------
@@ -241,6 +288,7 @@ def test_list_routes_response_fields(client):
     assert r["date_from"] == "2025-08-01"
     assert r["date_to"] == "2025-08-08"
     assert r["alert_price"] == 49
+    assert r["notify_available"] is False
     assert r["is_active"] is True
     assert "id" in r
     assert "created_at" in r
@@ -339,6 +387,41 @@ def test_update_route_success(client, db):
     assert route.origin == "AMS"
     assert route.destination == "MAD"
     assert int(route.alert_price) == 80
+
+
+def test_update_route_sets_notify_available(client, db):
+    token = _register_and_token(client, "updnotify@test.com")
+    save_res = client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+    }, headers=_auth(token))
+    route_id = save_res.json()["id"]
+
+    res = client.put(f"/routes/{route_id}", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "notify_available": True,
+    }, headers=_auth(token))
+    assert res.status_code == 200
+    assert db.query(Route).first().notify_available is True
+
+
+def test_update_route_clears_notify_available(client, db):
+    token = _register_and_token(client, "updnotifyclr@test.com")
+    save_res = client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "notify_available": True,
+    }, headers=_auth(token))
+    route_id = save_res.json()["id"]
+
+    res = client.put(f"/routes/{route_id}", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "notify_available": False,
+    }, headers=_auth(token))
+    assert res.status_code == 200
+    assert db.query(Route).first().notify_available is False
 
 
 def test_update_route_clears_alert_price(client, db):
