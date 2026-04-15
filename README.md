@@ -13,6 +13,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 - **Saved searches** — save any route search to your account; view, edit, and delete from a dedicated page sorted by departure date with sort and filter controls
 - **Alert options** — set a max price alert, an availability alert (notify when any flight appears), or both when saving a search
 - **Hourly route checker** — background scheduler checks every active route with an alert and logs prices found, goal status, and any errors to the database
+- **Admin panel** — site admin can view all users with search counts, browse the last 200 scheduler logs, and manually trigger the route checker
 - **Fully containerised** — one `docker compose up` gets you a running stack
 
 ---
@@ -107,6 +108,7 @@ Password-reset emails are caught by **Mailpit** — open http://localhost:8025 t
 | `SMTP_USER` | No | — | SMTP login username |
 | `SMTP_PASSWORD` | No | — | SMTP login password |
 | `SMTP_FROM` | No | same as `SMTP_USER` | From address on outgoing emails |
+| `ADMIN_EMAIL` | No | `admin@elcheeapo.com` | Email address granted admin access; a matching user is created on first startup |
 
 ---
 
@@ -119,6 +121,7 @@ Password-reset emails are caught by **Mailpit** — open http://localhost:8025 t
 | `POST` | `/auth/register` | `{ "email": "...", "password": "..." }` | Register a new user; sets httpOnly auth cookie and returns JWT |
 | `POST` | `/auth/login` | `{ "email": "...", "password": "..." }` | Log in; sets httpOnly auth cookie and returns JWT. **Rate limited: 10 requests/minute per IP** |
 | `POST` | `/auth/logout` | — | Clear the auth cookie |
+| `GET` | `/auth/me` | — | Return `{ "id", "email", "is_admin" }` for the authenticated user |
 | `POST` | `/auth/forgot-password` | `{ "email": "..." }` | Send a password-reset link (always returns 200). **Rate limited: 5 requests/minute per IP** |
 | `POST` | `/auth/reset-password` | `{ "token": "...", "password": "..." }` | Set a new password using a reset token |
 
@@ -223,6 +226,16 @@ GET /flights/search?origin=DUB&destination=BCN&date_from=2025-08-01&date_to=2025
 }
 ```
 
+### Admin
+
+All endpoints require the authenticated user to be the admin (email matches `ADMIN_EMAIL`).
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/admin/users` | List all users with email, join date, and saved-search count |
+| `GET` | `/admin/logs` | Last 200 scheduler check logs with route info, prices, and goal flags |
+| `POST` | `/admin/run-check` | Trigger the hourly scheduler job immediately; returns `{ "routes_checked": N }` |
+
 ### Health
 
 ```
@@ -243,7 +256,7 @@ docker compose run --rm test pytest tests/ -v --cov=. --cov-report=term-missing
 
 The test suite uses an in-memory SQLite database for full isolation. All Ryanair API calls are mocked — no network access required.
 
-Current coverage: **99%** across all source files (115 tests; `routers/routes.py` and `models.py` at 100%).
+Current coverage: **99%** across all source files (132 tests; `routers/routes.py` and `models.py` at 100%).
 
 ### Frontend (vitest)
 
@@ -261,16 +274,19 @@ npm test
 cheapflights/
 ├── api/
 │   ├── main.py              # FastAPI app, CORS, security headers, startup event
+│   ├── config.py            # Shared constants (ADMIN_EMAIL)
 │   ├── database.py          # SQLAlchemy engine + session + get_db
 │   ├── limiter.py           # Shared slowapi rate-limiter instance
 │   ├── models.py            # ORM models: User, Route, RouteCheckLog, Flight, Alert, PasswordResetToken
 │   ├── scheduler.py         # Hourly job: checks routes against alert goals, writes RouteCheckLog
 │   ├── routers/
-│   │   ├── auth.py          # register, login, logout, forgot-password, reset-password + JWT dependency
+│   │   ├── admin.py         # GET /admin/users, GET /admin/logs, POST /admin/run-check
+│   │   ├── auth.py          # register, login, logout, me, forgot-password, reset-password + JWT dependency
 │   │   ├── flights.py       # GET /flights/search + Ryanair API logic
 │   │   └── routes.py        # GET/POST/PUT/DELETE /routes/
 │   ├── tests/
 │   │   ├── conftest.py      # SQLite test client + fixtures
+│   │   ├── test_admin.py
 │   │   ├── test_auth.py
 │   │   ├── test_database.py
 │   │   ├── test_flights.py
@@ -282,8 +298,8 @@ cheapflights/
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx          # Router (Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches)
-│   │   ├── pages/           # Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches
+│   │   ├── App.tsx          # Router (Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Admin)
+│   │   ├── pages/           # Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Admin
 │   │   ├── components/      # Navbar, AirportInput, DateRangePicker, FlightList, PriceSuggestions
 │   │   └── data/
 │   │       └── airports.ts  # IATA code database
@@ -325,6 +341,7 @@ The log accumulates over time and will be used to trigger email notifications (s
 - [x] Saved searches page with sort (departure date, newest, origin, destination) and filter (price alert, availability, no alert) controls
 - [x] Click a saved search to immediately run it
 - [x] Hourly background scheduler checks routes and logs results to `route_check_logs`
+- [x] Admin panel — users list, scheduler logs, manual trigger
 - [ ] Price alert emails when a saved route drops below the target price
 - [ ] Availability alert emails when flights open on a tracked route
 - [ ] Return-trip total in the main results view
