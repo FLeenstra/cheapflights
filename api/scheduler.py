@@ -17,8 +17,8 @@ from routers.flights import _cheapest_for_date
 logger = logging.getLogger(__name__)
 
 
-def check_routes() -> None:
-    """Entry point called by APScheduler every hour."""
+def check_routes() -> int:
+    """Entry point called by APScheduler every hour. Returns number of routes checked."""
     db = SessionLocal()
     try:
         routes = db.query(Route).filter(
@@ -31,6 +31,8 @@ def check_routes() -> None:
 
         for route in routes:
             _check_route(db, route)
+
+        return len(routes)
     finally:
         db.close()
 

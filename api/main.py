@@ -6,10 +6,11 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 
+from config import ADMIN_EMAIL
 from database import Base, SessionLocal, engine
 from limiter import limiter
 from models import User
-from routers import auth, flights, routes
+from routers import admin, auth, flights, routes
 
 app = FastAPI(title="El Cheapo API", version="0.1.0")
 
@@ -37,10 +38,10 @@ async def add_security_headers(request: Request, call_next):
 app.include_router(auth.router)
 app.include_router(flights.router)
 app.include_router(routes.router)
+app.include_router(admin.router)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-ADMIN_EMAIL = "admin@elcheeapo.com"
 ADMIN_PASSWORD = "Admin1234!"
 
 

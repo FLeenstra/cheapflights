@@ -12,6 +12,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.orm import Session
 
+from config import ADMIN_EMAIL
 from database import get_db
 from limiter import limiter
 from models import PasswordResetToken, User
@@ -96,6 +97,12 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class MeResponse(BaseModel):
+    id: str
+    email: str
+    is_admin: bool
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -245,6 +252,15 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
     except Exception as exc:
         print(f"[password reset] Failed to send email: {exc}", flush=True)
         print(f"[password reset] Reset URL: {reset_url}", flush=True)
+
+
+@router.get("/me", response_model=MeResponse)
+def me(current_user: User = Depends(get_current_user)):
+    return MeResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        is_admin=current_user.email == ADMIN_EMAIL,
+    )
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)

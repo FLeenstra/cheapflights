@@ -1,9 +1,18 @@
-import { Bookmark, LogOut, Plane, Search } from 'lucide-react'
+import { Bookmark, LogOut, Plane, Search, ShieldCheck } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 export default function Navbar() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.is_admin) setIsAdmin(true) })
+      .catch(() => {})
+  }, [])
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
@@ -41,6 +50,7 @@ export default function Navbar() {
           <div className="flex items-center gap-1">
             {navItem('/search', 'Search', Search)}
             {navItem('/saved-searches', 'Saved searches', Bookmark)}
+            {isAdmin && navItem('/admin', 'Admin', ShieldCheck)}
           </div>
         </div>
 
