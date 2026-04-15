@@ -138,6 +138,8 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
     msg["Subject"] = "Reset your El Cheapo password"
     msg["From"] = from_addr
     msg["To"] = to_email
+
+    # Plain-text fallback
     msg.set_content(
         f"Hi,\n\n"
         f"Someone requested a password reset for your El Cheapo account.\n\n"
@@ -146,6 +148,93 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
         f"If you didn't request this, you can safely ignore this email.\n\n"
         f"— El Cheapo\n"
     )
+
+    # HTML version
+    msg.add_alternative(f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reset your El Cheapo password</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#1e3a8a 0%,#1e40af 50%,#2563eb 100%);border-radius:16px 16px 0 0;padding:36px 40px 32px;">
+              <table cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:rgba(255,255,255,0.15);border-radius:10px;padding:8px 10px;vertical-align:middle;">
+                    <span style="font-size:20px;line-height:1;">✈️</span>
+                  </td>
+                  <td style="padding-left:12px;vertical-align:middle;">
+                    <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">El Cheapo</span>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2;">
+                Reset your password
+              </p>
+              <p style="margin:8px 0 0;color:#bfdbfe;font-size:15px;line-height:1.5;">
+                We received a request to reset the password for your account.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="background:#ffffff;padding:36px 40px;">
+              <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+                Click the button below to choose a new password. This link is valid for <strong>1 hour</strong> and can only be used once.
+              </p>
+
+              <!-- CTA button -->
+              <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  <td style="background-color:#2563eb;border-radius:10px;">
+                    <a href="{reset_url}"
+                       style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.1px;">
+                      Set new password
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Fallback URL -->
+              <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">
+                If the button doesn't work, copy and paste this link into your browser:
+              </p>
+              <p style="margin:0 0 28px;word-break:break-all;">
+                <a href="{reset_url}" style="color:#2563eb;font-size:13px;text-decoration:none;">{reset_url}</a>
+              </p>
+
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
+
+              <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
+                If you didn't request a password reset, you can safely ignore this email — your password will not be changed.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f8fafc;border-radius:0 0 16px 16px;border-top:1px solid #e5e7eb;padding:20px 40px;">
+              <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">
+                © El Cheapo · Sent to {to_email}
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>""", subtype="html")
 
     try:
         with smtplib.SMTP(host, port) as smtp:
