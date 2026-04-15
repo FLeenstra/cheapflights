@@ -1,8 +1,12 @@
 """
 Tests for GET/POST/DELETE /routes/.
 """
+import uuid
+from datetime import date, timedelta
+from decimal import Decimal
+
 import pytest
-from models import Route
+from models import Route, RouteCheckLog
 
 
 def _register_and_token(client, email="user@test.com", password="Secret1!"):
@@ -290,6 +294,7 @@ def test_list_routes_response_fields(client):
     assert r["alert_price"] == 49
     assert r["notify_available"] is False
     assert r["is_active"] is True
+    assert r["goal_reached_at"] is None
     assert "id" in r
     assert "created_at" in r
 
@@ -310,6 +315,61 @@ def test_list_routes_excludes_other_users(client):
 def test_list_routes_requires_auth(client):
     res = client.get("/routes/")
     assert res.status_code in (401, 403)
+
+
+def test_list_routes_goal_reached_at_populated(client, db):
+    token = _register_and_token(client, "goalreached@test.com")
+    future_from = (date.today() + timedelta(days=30)).isoformat()
+    future_to = (date.today() + timedelta(days=37)).isoformat()
+    save_res = client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": future_from, "date_to": future_to,
+        "alert_price": 100,
+    }, headers=_auth(token))
+    route_id = uuid.UUID(save_res.json()["id"])
+
+    route = db.query(Route).filter(Route.id == route_id).first()
+    db.add(RouteCheckLog(
+        route_id=route.id,
+        outbound_price=Decimal("30.00"),
+        inbound_price=Decimal("35.00"),
+        total_price=Decimal("65.00"),
+        flights_found=True,
+        price_goal_reached=True,
+        available_goal_reached=False,
+    ))
+    db.commit()
+
+    res = client.get("/routes/", headers=_auth(token))
+    r = res.json()[0]
+    assert r["goal_reached_at"] is not None
+
+
+def test_list_routes_goal_reached_at_null_when_no_goal_met(client, db):
+    token = _register_and_token(client, "ngoal@test.com")
+    future_from = (date.today() + timedelta(days=30)).isoformat()
+    future_to = (date.today() + timedelta(days=37)).isoformat()
+    save_res = client.post("/routes/", json={
+        "origin": "AMS", "destination": "MAD",
+        "date_from": future_from, "date_to": future_to,
+        "alert_price": 50,
+    }, headers=_auth(token))
+    route_id = uuid.UUID(save_res.json()["id"])
+
+    route = db.query(Route).filter(Route.id == route_id).first()
+    db.add(RouteCheckLog(
+        route_id=route.id,
+        outbound_price=Decimal("60.00"),
+        inbound_price=Decimal("60.00"),
+        total_price=Decimal("120.00"),
+        flights_found=True,
+        price_goal_reached=False,
+        available_goal_reached=False,
+    ))
+    db.commit()
+
+    res = client.get("/routes/", headers=_auth(token))
+    assert res.json()[0]["goal_reached_at"] is None
 
 
 # ---------------------------------------------------------------------------

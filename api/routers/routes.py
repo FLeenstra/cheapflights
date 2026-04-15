@@ -2,13 +2,15 @@ import re
 import uuid as uuid_module
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, field_validator
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Route, User
+from models import Route, RouteCheckLog, User
 from routers.auth import get_current_user
 
 router = APIRouter(prefix="/routes", tags=["routes"])
@@ -51,6 +53,7 @@ class RouteOut(BaseModel):
     notify_available: bool
     is_active: bool
     created_at: datetime
+    goal_reached_at: Optional[datetime]
 
     model_config = {"from_attributes": True}
 
@@ -66,6 +69,20 @@ def list_routes(
         .order_by(Route.created_at.desc())
         .all()
     )
+
+    # Earliest goal-reached log per route (single query)
+    goal_rows = (
+        db.query(RouteCheckLog.route_id, func.min(RouteCheckLog.checked_at).label("reached_at"))
+        .filter(
+            RouteCheckLog.route_id.in_({r.id for r in routes}),
+            or_(RouteCheckLog.price_goal_reached == True,  # noqa: E712
+                RouteCheckLog.available_goal_reached == True),  # noqa: E712
+        )
+        .group_by(RouteCheckLog.route_id)
+        .all()
+    ) if routes else []
+    goal_map = {row.route_id: row.reached_at for row in goal_rows}
+
     return [
         RouteOut(
             id=str(r.id),
@@ -77,6 +94,7 @@ def list_routes(
             notify_available=r.notify_available,
             is_active=r.is_active,
             created_at=r.created_at,
+            goal_reached_at=goal_map.get(r.id),
         )
         for r in routes
     ]

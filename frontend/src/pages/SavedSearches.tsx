@@ -1,4 +1,4 @@
-import { ArrowRight, Bell, BellOff, Pencil, Radio, Trash2 } from 'lucide-react'
+import { ArrowRight, Bell, BellOff, CheckCircle2, Pencil, Radio, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
@@ -14,6 +14,7 @@ interface SavedRoute {
   notify_available: boolean
   is_active: boolean
   created_at: string
+  goal_reached_at: string | null
 }
 
 type SortKey = 'newest' | 'oldest' | 'origin' | 'destination' | 'departure'
@@ -207,68 +208,88 @@ export default function SavedSearches() {
 
         {!loading && visibleRoutes.length > 0 && (
           <div className="space-y-3">
-            {visibleRoutes.map(route => (
-              <div
-                key={route.id}
-                className="bg-white rounded-2xl border border-gray-100 px-6 py-5 flex items-center justify-between gap-4"
-              >
-                {/* Route info — click to run search */}
-                <button
-                  onClick={() => handleSearch(route)}
-                  className="flex-1 min-w-0 text-left rounded-xl px-3 py-2 -mx-3 -my-2 hover:bg-brand-50 transition group"
-                >
-                  <div className="flex items-center gap-2 font-semibold text-gray-900 text-lg group-hover:text-brand-700 transition">
-                    <span>{route.origin}</span>
-                    <ArrowRight className="w-4 h-4 text-gray-400 shrink-0 group-hover:text-brand-500 transition" />
-                    <span>{route.destination}</span>
-                  </div>
-                  <div className="text-sm text-gray-500 mt-0.5">
-                    {route.date_from} — {route.date_to}
-                  </div>
-                </button>
+            {visibleRoutes.map(route => {
+              const goalReached = route.goal_reached_at !== null
+              const goalDate = goalReached
+                ? new Date(route.goal_reached_at!).toLocaleString('en-GB', {
+                    day: '2-digit', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                  })
+                : null
 
-                {/* Badges */}
-                <div className="shrink-0 flex flex-col items-end gap-1.5 text-sm">
-                  {route.alert_price !== null && (
-                    <div className="flex items-center gap-1.5 text-brand-700 bg-brand-50 px-3 py-1.5 rounded-lg font-medium">
-                      <Bell className="w-3.5 h-3.5" />
-                      Max €{route.alert_price}
+              return (
+                <div
+                  key={route.id}
+                  className={`bg-white rounded-2xl border overflow-hidden ${goalReached ? 'border-green-200' : 'border-gray-100'}`}
+                >
+                  <div className="px-6 py-5 flex items-center justify-between gap-4">
+                    {/* Route info — click to run search */}
+                    <button
+                      onClick={() => handleSearch(route)}
+                      className="flex-1 min-w-0 text-left rounded-xl px-3 py-2 -mx-3 -my-2 hover:bg-brand-50 transition group"
+                    >
+                      <div className={`flex items-center gap-2 font-semibold text-lg group-hover:text-brand-700 transition ${goalReached ? 'text-gray-500' : 'text-gray-900'}`}>
+                        <span>{route.origin}</span>
+                        <ArrowRight className="w-4 h-4 text-gray-400 shrink-0 group-hover:text-brand-500 transition" />
+                        <span>{route.destination}</span>
+                      </div>
+                      <div className="text-sm text-gray-500 mt-0.5">
+                        {route.date_from} — {route.date_to}
+                      </div>
+                    </button>
+
+                    {/* Badges */}
+                    <div className="shrink-0 flex flex-col items-end gap-1.5 text-sm">
+                      {route.alert_price !== null && (
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${goalReached ? 'text-gray-400 bg-gray-50' : 'text-brand-700 bg-brand-50'}`}>
+                          <Bell className="w-3.5 h-3.5" />
+                          Max €{route.alert_price}
+                        </div>
+                      )}
+                      {route.notify_available && (
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${goalReached ? 'text-gray-400 bg-gray-50' : 'text-emerald-700 bg-emerald-50'}`}>
+                          <Radio className="w-3.5 h-3.5" />
+                          Availability
+                        </div>
+                      )}
+                      {route.alert_price === null && !route.notify_available && (
+                        <div className="flex items-center gap-1.5 text-gray-400 px-3 py-1.5">
+                          <BellOff className="w-3.5 h-3.5" />
+                          No alert
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {route.notify_available && (
-                    <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg font-medium">
-                      <Radio className="w-3.5 h-3.5" />
-                      Availability
-                    </div>
-                  )}
-                  {route.alert_price === null && !route.notify_available && (
-                    <div className="flex items-center gap-1.5 text-gray-400 px-3 py-1.5">
-                      <BellOff className="w-3.5 h-3.5" />
-                      No alert
+
+                    {/* Edit */}
+                    <button
+                      onClick={() => handleEdit(route)}
+                      aria-label="Edit saved search"
+                      className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+
+                    {/* Delete */}
+                    <button
+                      onClick={() => handleDelete(route.id)}
+                      disabled={deletingId === route.id}
+                      aria-label="Delete saved search"
+                      className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Goal reached banner */}
+                  {goalReached && (
+                    <div className="flex items-center gap-2 bg-green-50 border-t border-green-100 px-6 py-2.5 text-sm text-green-700 font-medium">
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      Goal reached · {goalDate}
                     </div>
                   )}
                 </div>
-
-                {/* Edit */}
-                <button
-                  onClick={() => handleEdit(route)}
-                  aria-label="Edit saved search"
-                  className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-
-                {/* Delete */}
-                <button
-                  onClick={() => handleDelete(route.id)}
-                  disabled={deletingId === route.id}
-                  aria-label="Delete saved search"
-                  className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
