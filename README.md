@@ -10,7 +10,8 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 - **Price suggestions** — cheapest outbound + inbound prices for 7 date combinations (−3 to +3 days)
 - **Airport autocomplete** — fast local search across all IATA codes
 - **User accounts** — register, log in, and reset your password via a styled HTML email
-- **Saved searches** — save any route search to your account with an optional target price; view, edit, and delete them from a dedicated page
+- **Saved searches** — save any route search to your account; view, edit, and delete from a dedicated page sorted by departure date with sort and filter controls
+- **Alert options** — set a max price alert, an availability alert (notify when any flight appears), or both when saving a search
 - **Fully containerised** — one `docker compose up` gets you a running stack
 
 ---
@@ -128,7 +129,7 @@ All routes endpoints require authentication. The browser sends the httpOnly cook
 
 | Method | Path | Body / params | Description |
 |---|---|---|---|
-| `GET` | `/routes/` | — | List all saved routes for the authenticated user (newest first) |
+| `GET` | `/routes/` | — | List all saved routes for the authenticated user |
 | `POST` | `/routes/` | see below | Save a route search to the authenticated user's account |
 | `PUT` | `/routes/{id}` | see below | Update an existing saved route (same body as POST) |
 | `DELETE` | `/routes/{id}` | — | Delete a saved route (404 if not found or owned by another user) |
@@ -141,13 +142,18 @@ All routes endpoints require authentication. The browser sends the httpOnly cook
   "destination": "BCN",
   "date_from": "2025-08-01",
   "date_to": "2025-08-08",
-  "alert_price": 49
+  "alert_price": 49,
+  "notify_available": false
 }
 ```
 
-`alert_price` is optional. When provided it must be a whole number (integer, no decimals) and represents the **maximum combined price for the full return trip** (outbound + inbound). Returns `{ "id": "<uuid>" }` on success.
+`alert_price` is optional. When provided it must be a whole number (integer, no decimals) and represents the **maximum combined price for the full return trip** (outbound + inbound).
 
-Saving a route with the same `origin`, `destination`, `date_from`, and `date_to` as an existing saved search for the same user returns **409 Conflict**, regardless of the `alert_price` value.
+`notify_available` is optional (default `false`). When `true`, the user will be notified as soon as any flight becomes available on the route, regardless of price.
+
+Both alert options can be set independently or together. Returns `{ "id": "<uuid>" }` on success.
+
+Saving a route with the same `origin`, `destination`, `date_from`, and `date_to` as an existing saved search for the same user returns **409 Conflict**.
 
 #### Password reset flow
 
@@ -236,7 +242,7 @@ docker compose run --rm test pytest tests/ -v --cov=. --cov-report=term-missing
 
 The test suite uses an in-memory SQLite database for full isolation. All Ryanair API calls are mocked — no network access required.
 
-Current coverage: **99%** across all source files (minimum per file: 92%).
+Current coverage: **99%** across all source files (96 tests; `routers/routes.py` at 100%).
 
 ### Frontend (vitest)
 
@@ -299,9 +305,12 @@ cheapflights/
 
 ## Roadmap
 
-- [x] Password reset via email
-- [x] Save route searches with optional target price per user account, with list and delete via the Saved searches page
+- [x] Password reset via styled HTML email
+- [x] Save route searches with optional price alert and/or availability alert
+- [x] Saved searches page with sort (departure date, newest, origin, destination) and filter (price alert, availability, no alert) controls
+- [x] Click a saved search to immediately run it
 - [ ] Price alert emails when a saved route drops below the target price
+- [ ] Availability alert emails when flights open on a tracked route
 - [ ] Return-trip total in the main results view
 - [ ] Support for multi-month searches
 - [ ] Other airlines beyond Ryanair
