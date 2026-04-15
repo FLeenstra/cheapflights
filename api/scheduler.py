@@ -65,6 +65,11 @@ def _check_route(db: Session, route: Route) -> None:
             available_goal_reached=available_goal_reached,
         )
         db.add(log)
+
+        if price_goal_reached or available_goal_reached:
+            route.is_active = False
+            logger.info("[scheduler] Goal reached for route %s — deactivating", route.id)
+
         db.commit()
 
         logger.info(
