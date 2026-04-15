@@ -12,6 +12,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 - **User accounts** — register, log in, and reset your password via a styled HTML email
 - **Saved searches** — save any route search to your account; view, edit, and delete from a dedicated page sorted by departure date with sort and filter controls
 - **Alert options** — set a max price alert, an availability alert (notify when any flight appears), or both when saving a search
+- **Hourly route checker** — background scheduler checks every active route with an alert and logs prices found, goal status, and any errors to the database
 - **Fully containerised** — one `docker compose up` gets you a running stack
 
 ---
@@ -22,7 +23,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 |---|---|
 | **API** | Python 3.12, FastAPI, SQLAlchemy 2.0, psycopg2 |
 | **Auth** | JWT (python-jose), bcrypt (passlib) |
-| **Scheduling** | APScheduler |
+| **Scheduling** | APScheduler (hourly route checker) |
 | **Database** | PostgreSQL 16 |
 | **Frontend** | React 18, TypeScript, Vite, Tailwind CSS |
 | **Flight data** | Ryanair unofficial API (ryanair-py + direct HTTP) |
@@ -242,7 +243,7 @@ docker compose run --rm test pytest tests/ -v --cov=. --cov-report=term-missing
 
 The test suite uses an in-memory SQLite database for full isolation. All Ryanair API calls are mocked — no network access required.
 
-Current coverage: **99%** across all source files (96 tests; `routers/routes.py` at 100%).
+Current coverage: **99%** across all source files (115 tests; `routers/routes.py` and `models.py` at 100%).
 
 ### Frontend (vitest)
 
@@ -262,18 +263,21 @@ cheapflights/
 │   ├── main.py              # FastAPI app, CORS, security headers, startup event
 │   ├── database.py          # SQLAlchemy engine + session + get_db
 │   ├── limiter.py           # Shared slowapi rate-limiter instance
-│   ├── models.py            # ORM models: User, Route, Flight, Alert, PasswordResetToken
+│   ├── models.py            # ORM models: User, Route, RouteCheckLog, Flight, Alert, PasswordResetToken
+│   ├── scheduler.py         # Hourly job: checks routes against alert goals, writes RouteCheckLog
 │   ├── routers/
 │   │   ├── auth.py          # register, login, logout, forgot-password, reset-password + JWT dependency
 │   │   ├── flights.py       # GET /flights/search + Ryanair API logic
-│   │   └── routes.py        # GET/POST/DELETE /routes/
+│   │   └── routes.py        # GET/POST/PUT/DELETE /routes/
 │   ├── tests/
 │   │   ├── conftest.py      # SQLite test client + fixtures
 │   │   ├── test_auth.py
 │   │   ├── test_database.py
 │   │   ├── test_flights.py
 │   │   ├── test_health.py
-│   │   └── test_models.py
+│   │   ├── test_models.py
+│   │   ├── test_routes.py
+│   │   └── test_scheduler.py
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
@@ -301,6 +305,17 @@ cheapflights/
 4. In parallel, it fetches the single cheapest price for each of the 6 surrounding dates (±3 days, both directions) to build the suggestions grid.
 5. Results are sorted cheapest-first and returned to the frontend.
 
+### Background route checker
+
+Every hour APScheduler runs `check_routes()`, which:
+
+1. Queries all active routes with a future departure date and at least one alert set (`alert_price` or `notify_available`).
+2. For each route, fetches the cheapest outbound and inbound price from Ryanair.
+3. Evaluates whether the price goal (total ≤ `alert_price`) and/or availability goal (any outbound flight exists) are met.
+4. Writes a `RouteCheckLog` row recording the prices found, goal flags, and any error.
+
+The log accumulates over time and will be used to trigger email notifications (see roadmap).
+
 ---
 
 ## Roadmap
@@ -309,6 +324,7 @@ cheapflights/
 - [x] Save route searches with optional price alert and/or availability alert
 - [x] Saved searches page with sort (departure date, newest, origin, destination) and filter (price alert, availability, no alert) controls
 - [x] Click a saved search to immediately run it
+- [x] Hourly background scheduler checks routes and logs results to `route_check_logs`
 - [ ] Price alert emails when a saved route drops below the target price
 - [ ] Availability alert emails when flights open on a tracked route
 - [ ] Return-trip total in the main results view
