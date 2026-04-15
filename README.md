@@ -12,8 +12,9 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 - **User accounts** — register, log in, and reset your password via a styled HTML email
 - **Saved searches** — save any route search to your account; view, edit, and delete from a dedicated page sorted by departure date with sort and filter controls
 - **Alert options** — set a max price alert, an availability alert (notify when any flight appears), or both when saving a search
-- **Hourly route checker** — background scheduler checks every active route with an alert and logs prices found, goal status, and any errors to the database
-- **Admin panel** — site admin can view all users with search counts, browse the last 200 scheduler logs, and manually trigger the route checker
+- **Hourly route checker** — background scheduler checks every active route with an alert, logs results, and deactivates the route once its goal is met
+- **Goal reached indicator** — saved searches show a green "Goal reached" banner with the exact timestamp when a price or availability goal was first met
+- **Admin panel** — site admin can view all users (sorted by active searches), browse scheduler logs grouped by run, and manually trigger the route checker
 - **Fully containerised** — one `docker compose up` gets you a running stack
 
 ---
@@ -264,7 +265,7 @@ docker compose run --rm test pytest tests/ -v --cov=. --cov-report=term-missing
 
 The test suite uses an in-memory SQLite database for full isolation. All Ryanair API calls are mocked — no network access required.
 
-Current coverage: **99%** across all source files (132 tests; `routers/routes.py` and `models.py` at 100%).
+Current coverage: **99%** across all source files (139 tests; `routers/routes.py` and `models.py` at 100%).
 
 ### Frontend (vitest)
 
@@ -337,8 +338,9 @@ Every hour APScheduler runs `check_routes()`, which:
 2. For each route, fetches the cheapest outbound and inbound price from Ryanair.
 3. Evaluates whether the price goal (total ≤ `alert_price`) and/or availability goal (any outbound flight exists) are met.
 4. Writes a `RouteCheckLog` row recording the prices found, goal flags, and any error.
+5. If a goal is met, sets `route.is_active = False` so the route is skipped on all future runs.
 
-The log accumulates over time and will be used to trigger email notifications (see roadmap).
+The saved searches page reflects the goal status: once a goal is reached the card shows a green "Goal reached · \<date\>" banner and the search is no longer checked.
 
 ---
 
@@ -349,7 +351,9 @@ The log accumulates over time and will be used to trigger email notifications (s
 - [x] Saved searches page with sort (departure date, newest, origin, destination) and filter (price alert, availability, no alert) controls
 - [x] Click a saved search to immediately run it
 - [x] Hourly background scheduler checks routes and logs results to `route_check_logs`
-- [x] Admin panel — users list, scheduler logs, manual trigger
+- [x] Route auto-deactivated when its goal is reached (stops being checked)
+- [x] Saved searches show "Goal reached" banner with timestamp
+- [x] Admin panel — users list (sorted by searches), scheduler logs grouped by run, manual trigger
 - [ ] Price alert emails when a saved route drops below the target price
 - [ ] Availability alert emails when flights open on a tracked route
 - [ ] Return-trip total in the main results view
