@@ -33,7 +33,7 @@ export default function SavedSearches() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [sortBy, setSortBy] = useState<SortKey>('newest')
+  const [sortBy, setSortBy] = useState<SortKey>('departure')
   const [alertFilter, setAlertFilter] = useState<AlertFilter>('all')
 
   useEffect(() => {
