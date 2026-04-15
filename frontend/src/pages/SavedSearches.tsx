@@ -1,5 +1,5 @@
 import { ArrowRight, Bell, BellOff, Pencil, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import { airports } from '../data/airports'
@@ -15,12 +15,25 @@ interface SavedRoute {
   created_at: string
 }
 
+type SortKey = 'newest' | 'oldest' | 'origin' | 'destination' | 'departure'
+type AlertFilter = 'all' | 'with' | 'without'
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'newest',      label: 'Newest first' },
+  { value: 'oldest',      label: 'Oldest first' },
+  { value: 'departure',   label: 'Departure date' },
+  { value: 'origin',      label: 'Origin A → Z' },
+  { value: 'destination', label: 'Destination A → Z' },
+]
+
 export default function SavedSearches() {
   const navigate = useNavigate()
   const [routes, setRoutes] = useState<SavedRoute[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<SortKey>('newest')
+  const [alertFilter, setAlertFilter] = useState<AlertFilter>('all')
 
   useEffect(() => {
     fetch('/api/routes/', { credentials: 'include' })
@@ -37,6 +50,22 @@ export default function SavedSearches() {
       .catch(() => setError('Failed to load saved searches'))
       .finally(() => setLoading(false))
   }, [navigate])
+
+  function handleSearch(route: SavedRoute) {
+    const originAirport = airports.find(a => a.iata === route.origin)
+    const destinationAirport = airports.find(a => a.iata === route.destination)
+    if (!originAirport || !destinationAirport) return
+    navigate('/search', {
+      state: {
+        runSearch: {
+          origin: originAirport,
+          destination: destinationAirport,
+          dateFrom: new Date(route.date_from + 'T12:00:00'),
+          dateTo: new Date(route.date_to + 'T12:00:00'),
+        },
+      },
+    })
+  }
 
   function handleEdit(route: SavedRoute) {
     const originAirport = airports.find(a => a.iata === route.origin)
@@ -72,6 +101,25 @@ export default function SavedSearches() {
     }
   }
 
+  const visibleRoutes = useMemo(() => {
+    let list = [...routes]
+
+    if (alertFilter === 'with')    list = list.filter(r => r.alert_price !== null)
+    if (alertFilter === 'without') list = list.filter(r => r.alert_price === null)
+
+    list.sort((a, b) => {
+      switch (sortBy) {
+        case 'oldest':      return a.created_at.localeCompare(b.created_at)
+        case 'origin':      return a.origin.localeCompare(b.origin)
+        case 'destination': return a.destination.localeCompare(b.destination)
+        case 'departure':   return a.date_from.localeCompare(b.date_from)
+        default:            return b.created_at.localeCompare(a.created_at) // newest
+      }
+    })
+
+    return list
+  }, [routes, sortBy, alertFilter])
+
   return (
     <div className="min-h-screen bg-brand-50">
       <Navbar />
@@ -98,6 +146,42 @@ export default function SavedSearches() {
           </div>
         )}
 
+        {!loading && routes.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 mb-5">
+            {/* Sort */}
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as SortKey)}
+              className="text-sm border border-gray-200 rounded-xl px-3 py-2 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition cursor-pointer"
+            >
+              {SORT_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+
+            {/* Alert filter */}
+            <div className="flex rounded-xl border border-gray-200 bg-white overflow-hidden text-sm">
+              {(['all', 'with', 'without'] as AlertFilter[]).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setAlertFilter(f)}
+                  className={`px-3 py-2 transition ${
+                    alertFilter === f
+                      ? 'bg-brand-600 text-white font-medium'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {f === 'all' ? 'All' : f === 'with' ? 'With alert' : 'No alert'}
+                </button>
+              ))}
+            </div>
+
+            <span className="text-sm text-gray-400 ml-auto">
+              {visibleRoutes.length} of {routes.length}
+            </span>
+          </div>
+        )}
+
         {!loading && routes.length === 0 && !error && (
           <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
             <p className="text-gray-400 text-sm">No saved searches yet.</p>
@@ -107,24 +191,33 @@ export default function SavedSearches() {
           </div>
         )}
 
-        {!loading && routes.length > 0 && (
+        {!loading && visibleRoutes.length === 0 && routes.length > 0 && !error && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+            <p className="text-gray-400 text-sm">No searches match the current filter.</p>
+          </div>
+        )}
+
+        {!loading && visibleRoutes.length > 0 && (
           <div className="space-y-3">
-            {routes.map(route => (
+            {visibleRoutes.map(route => (
               <div
                 key={route.id}
                 className="bg-white rounded-2xl border border-gray-100 px-6 py-5 flex items-center justify-between gap-4"
               >
-                {/* Route info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 font-semibold text-gray-900 text-lg">
+                {/* Route info — click to run search */}
+                <button
+                  onClick={() => handleSearch(route)}
+                  className="flex-1 min-w-0 text-left rounded-xl px-3 py-2 -mx-3 -my-2 hover:bg-brand-50 transition group"
+                >
+                  <div className="flex items-center gap-2 font-semibold text-gray-900 text-lg group-hover:text-brand-700 transition">
                     <span>{route.origin}</span>
-                    <ArrowRight className="w-4 h-4 text-gray-400 shrink-0" />
+                    <ArrowRight className="w-4 h-4 text-gray-400 shrink-0 group-hover:text-brand-500 transition" />
                     <span>{route.destination}</span>
                   </div>
                   <div className="text-sm text-gray-500 mt-0.5">
                     {route.date_from} — {route.date_to}
                   </div>
-                </div>
+                </button>
 
                 {/* Alert price */}
                 <div className="shrink-0 text-sm text-right">
