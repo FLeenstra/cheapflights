@@ -1,3 +1,4 @@
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from passlib.context import CryptContext
@@ -58,6 +59,11 @@ def startup():
             db.commit()
     finally:
         db.close()
+
+    from scheduler import check_routes
+    _scheduler = BackgroundScheduler()
+    _scheduler.add_job(check_routes, "interval", hours=1)
+    _scheduler.start()
 
 
 @app.get("/health")

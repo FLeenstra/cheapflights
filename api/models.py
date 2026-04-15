@@ -49,6 +49,7 @@ class Route(Base):
     user: Mapped["User | None"] = relationship("User", back_populates="routes")
     flights: Mapped[list["Flight"]] = relationship("Flight", back_populates="route")
     alerts: Mapped[list["Alert"]] = relationship("Alert", back_populates="route")
+    check_logs: Mapped[list["RouteCheckLog"]] = relationship("RouteCheckLog", back_populates="route")
 
 
 class Flight(Base):
@@ -65,6 +66,24 @@ class Flight(Base):
 
     route: Mapped["Route"] = relationship("Route", back_populates="flights")
     alerts: Mapped[list["Alert"]] = relationship("Alert", back_populates="flight")
+
+
+class RouteCheckLog(Base):
+    """One record per scheduled check of a saved route."""
+    __tablename__ = "route_check_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    route_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("routes.id"), nullable=False)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    outbound_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    inbound_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    total_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    flights_found: Mapped[bool] = mapped_column(Boolean, default=False)
+    price_goal_reached: Mapped[bool] = mapped_column(Boolean, default=False)
+    available_goal_reached: Mapped[bool] = mapped_column(Boolean, default=False)
+    error: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    route: Mapped["Route"] = relationship("Route", back_populates="check_logs")
 
 
 class Alert(Base):
