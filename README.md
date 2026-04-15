@@ -9,7 +9,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 - **Flight search** — real-time prices pulled from Ryanair's API for any origin/destination pair
 - **Price suggestions** — cheapest outbound + inbound prices for 7 date combinations (−3 to +3 days)
 - **Airport autocomplete** — fast local search across all IATA codes
-- **User accounts** — register, log in, and reset your password via email
+- **User accounts** — register, log in, and reset your password via a styled HTML email
 - **Saved searches** — save any route search to your account with an optional target price; view, edit, and delete them from a dedicated page
 - **Fully containerised** — one `docker compose up` gets you a running stack
 
