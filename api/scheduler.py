@@ -15,9 +15,58 @@ from sqlalchemy.orm import Session
 
 from database import SessionLocal
 from models import Alert, Flight, Route, RouteCheckLog
-from routers.flights import _cheapest_for_date
+from routers.flights import _cheapest_for_date, _search_date
 
 logger = logging.getLogger(__name__)
+
+
+def _flight_table_html(flights: list[dict], label: str, origin: str, destination: str, d) -> str:
+    rows = ""
+    for i, f in enumerate(flights):
+        time = f["departure_time"][11:16] if len(f["departure_time"]) >= 16 else f["departure_time"]
+        badge = (
+            '<td style="padding:10px 12px;"><span style="background:#eff6ff;color:#2563eb;'
+            'font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">Best price</span></td>'
+            if i == 0 else '<td style="padding:10px 12px;"></td>'
+        )
+        bg = "#f8fafc" if i % 2 == 0 else "#ffffff"
+        rows += (
+            f'<tr style="background:{bg};">'
+            f'{badge}'
+            f'<td style="padding:10px 12px;font-size:14px;color:#374151;">{f["flight_number"]}</td>'
+            f'<td style="padding:10px 12px;font-size:14px;color:#374151;">{time}</td>'
+            f'<td style="padding:10px 12px;font-size:14px;font-weight:700;color:#1d4ed8;text-align:right;">'
+            f'&euro;{f["price"]:.2f}</td>'
+            f'</tr>'
+        )
+    return (
+        f'<p style="margin:0 0 8px;color:#6b7280;font-size:12px;font-weight:700;'
+        f'text-transform:uppercase;letter-spacing:0.05em;">'
+        f'{label} &mdash; {origin} &rarr; {destination} &mdash; {d}</p>'
+        f'<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;'
+        f'border-radius:8px;overflow:hidden;margin-bottom:24px;">'
+        f'<thead><tr style="background:#f1f5f9;">'
+        f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
+        f'text-transform:uppercase;letter-spacing:0.05em;"></th>'
+        f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
+        f'text-transform:uppercase;letter-spacing:0.05em;">Flight</th>'
+        f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
+        f'text-transform:uppercase;letter-spacing:0.05em;">Departs</th>'
+        f'<th style="padding:8px 12px;text-align:right;font-size:11px;color:#6b7280;font-weight:600;'
+        f'text-transform:uppercase;letter-spacing:0.05em;">Price</th>'
+        f'</tr></thead>'
+        f'<tbody>{rows}</tbody>'
+        f'</table>'
+    )
+
+
+def _flight_table_text(flights: list[dict], label: str, origin: str, destination: str, d) -> str:
+    lines = [f"{label} — {origin} → {destination} — {d}"]
+    for i, f in enumerate(flights):
+        time = f["departure_time"][11:16] if len(f["departure_time"]) >= 16 else f["departure_time"]
+        prefix = "★ " if i == 0 else "  "
+        lines.append(f"  {prefix}{f['flight_number']}  {time}  €{f['price']:.2f}")
+    return "\n".join(lines) + "\n"
 
 
 def _send_alert_email(
@@ -26,6 +75,8 @@ def _send_alert_email(
     price_goal: bool,
     avail_goal: bool,
     total: float | None,
+    outbound_flights: list[dict] | None = None,
+    inbound_flights: list[dict] | None = None,
 ) -> None:
     host = os.getenv("SMTP_HOST")
     if not host:
@@ -72,6 +123,27 @@ def _send_alert_email(
         )
         goal_lines_text += "Availability goal reached — outbound flights are now on sale.\n"
 
+    # Flight tables
+    flights_html = ""
+    flights_text = ""
+    if outbound_flights:
+        flights_html += _flight_table_html(outbound_flights, "Outbound", origin, destination, date_from)
+        flights_text += _flight_table_text(outbound_flights, "Outbound", origin, destination, date_from) + "\n"
+    if inbound_flights:
+        flights_html += _flight_table_html(inbound_flights, "Return", destination, origin, date_to)
+        flights_text += _flight_table_text(inbound_flights, "Return", destination, origin, date_to) + "\n"
+    if outbound_flights and inbound_flights:
+        cheapest_out = outbound_flights[0]["price"]
+        cheapest_in = inbound_flights[0]["price"]
+        cheapest_total = cheapest_out + cheapest_in
+        flights_html += (
+            f'<p style="margin:0 0 24px;font-size:15px;color:#374151;">'
+            f'Cheapest combination: <strong style="color:#1d4ed8;">&euro;{cheapest_out:.2f}</strong> outbound + '
+            f'<strong style="color:#1d4ed8;">&euro;{cheapest_in:.2f}</strong> return = '
+            f'<strong style="font-size:17px;color:#1d4ed8;">&euro;{cheapest_total:.2f}</strong> total</p>'
+        )
+        flights_text += f"Cheapest combination: €{cheapest_out:.2f} + €{cheapest_in:.2f} = €{cheapest_total:.2f} total\n\n"
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -111,6 +183,8 @@ def _send_alert_email(
           <tr>
             <td style="background-color:#ffffff;padding:36px 40px;">
               {goal_lines_html}
+
+              {flights_html}
 
               <!-- CTA button -->
               <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
@@ -154,6 +228,7 @@ def _send_alert_email(
         f"Route: {origin} → {destination}\n"
         f"Dates: {date_from} – {date_to}\n\n"
         f"{goal_lines_text}\n"
+        f"{flights_text}"
         f"This route has been deactivated and will no longer trigger alerts.\n"
         f"You can save a new search at: {frontend_url}\n\n"
         f"— El Cheapo\n"
@@ -434,7 +509,12 @@ def _check_route(db: Session, route: Route) -> None:
         db.commit()
 
         if goal_reached and user_email:
-            _send_alert_email(user_email, route, price_goal_reached, available_goal_reached, total)
+            out_flights, _ = _search_date(route.origin, route.destination, route.date_from)
+            in_flights, _ = _search_date(route.destination, route.origin, route.date_to)
+            _send_alert_email(
+                user_email, route, price_goal_reached, available_goal_reached, total,
+                out_flights or None, in_flights or None,
+            )
 
         logger.info(
             "[scheduler] %s→%s out=%.2f in=%.2f total=%s price_goal=%s avail_goal=%s",

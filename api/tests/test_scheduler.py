@@ -337,9 +337,24 @@ def test_deactivated_route_not_checked_next_run(db):
 # Alert email — sent on goal reached, not sent otherwise
 # ---------------------------------------------------------------------------
 
+_MOCK_FLIGHT_OUT = {
+    "flight_number": "FR1234", "price": 30.0, "currency": "EUR",
+    "origin": "DUB", "origin_full": "Dublin, Ireland",
+    "destination": "BCN", "destination_full": "Barcelona, Spain",
+    "departure_time": "2026-06-01T06:00:00",
+}
+_MOCK_FLIGHT_IN = {
+    "flight_number": "FR5678", "price": 35.0, "currency": "EUR",
+    "origin": "BCN", "origin_full": "Barcelona, Spain",
+    "destination": "DUB", "destination_full": "Dublin, Ireland",
+    "departure_time": "2026-06-08T18:00:00",
+}
+
+
 def test_alert_email_sent_when_price_goal_reached(db):
     route = _make_route(db, alert_price=70)
     with patch("scheduler._cheapest_for_date", side_effect=[30.0, 35.0]), \
+         patch("scheduler._search_date", side_effect=[([_MOCK_FLIGHT_OUT], None), ([_MOCK_FLIGHT_IN], None)]), \
          patch("scheduler._send_alert_email") as mock_email:
         from scheduler import _check_route
         _check_route(db, route)
@@ -354,6 +369,7 @@ def test_alert_email_sent_when_price_goal_reached(db):
 def test_alert_email_sent_when_availability_goal_reached(db):
     route = _make_route(db, notify_available=True)
     with patch("scheduler._cheapest_for_date", side_effect=[29.99, None]), \
+         patch("scheduler._search_date", side_effect=[([_MOCK_FLIGHT_OUT], None), ([], None)]), \
          patch("scheduler._send_alert_email") as mock_email:
         from scheduler import _check_route
         _check_route(db, route)
@@ -367,6 +383,7 @@ def test_alert_email_sent_when_availability_goal_reached(db):
 def test_alert_email_sent_when_both_goals_reached(db):
     route = _make_route(db, alert_price=70, notify_available=True)
     with patch("scheduler._cheapest_for_date", side_effect=[30.0, 35.0]), \
+         patch("scheduler._search_date", side_effect=[([_MOCK_FLIGHT_OUT], None), ([_MOCK_FLIGHT_IN], None)]), \
          patch("scheduler._send_alert_email") as mock_email:
         from scheduler import _check_route
         _check_route(db, route)
@@ -395,6 +412,31 @@ def test_alert_email_not_sent_on_api_error(db):
         _check_route(db, route)
 
     mock_email.assert_not_called()
+
+
+def test_alert_email_receives_flight_lists_on_goal_reached(db):
+    route = _make_route(db, alert_price=70)
+    with patch("scheduler._cheapest_for_date", side_effect=[30.0, 35.0]), \
+         patch("scheduler._search_date", side_effect=[([_MOCK_FLIGHT_OUT], None), ([_MOCK_FLIGHT_IN], None)]), \
+         patch("scheduler._send_alert_email") as mock_email:
+        from scheduler import _check_route
+        _check_route(db, route)
+
+    kwargs = mock_email.call_args
+    outbound_flights = kwargs[0][5]
+    inbound_flights = kwargs[0][6]
+    assert outbound_flights == [_MOCK_FLIGHT_OUT]
+    assert inbound_flights == [_MOCK_FLIGHT_IN]
+
+
+def test_search_date_not_called_when_goal_not_reached(db):
+    route = _make_route(db, alert_price=50)
+    with patch("scheduler._cheapest_for_date", side_effect=[40.0, 40.0]), \
+         patch("scheduler._search_date") as mock_search:
+        from scheduler import _check_route
+        _check_route(db, route)
+
+    mock_search.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -457,6 +499,39 @@ def test_send_alert_email_smtp_failure_does_not_raise():
         with patch("scheduler.smtplib.SMTP", side_effect=ConnectionRefusedError("refused")):
             _send_alert_email("user@test.com", mock_route, False, True, None)
     # Must not raise
+
+
+def test_send_alert_email_includes_flight_table_in_html():
+    from scheduler import _send_alert_email
+
+    mock_route = MagicMock()
+    mock_route.origin = "DUB"
+    mock_route.destination = "BCN"
+    mock_route.date_from = "2026-06-01"
+    mock_route.date_to = "2026-06-08"
+    mock_route.alert_price = 70
+
+    sent_messages = []
+
+    env = {"SMTP_HOST": "mailpit", "SMTP_PORT": "1025", "SMTP_USER": "", "SMTP_FROM": "x@x.com"}
+    mock_smtp = MagicMock()
+    mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
+    mock_smtp.__exit__ = MagicMock(return_value=False)
+    mock_smtp.send_message.side_effect = lambda m: sent_messages.append(m)
+
+    with patch.dict("os.environ", env):
+        with patch("scheduler.smtplib.SMTP", return_value=mock_smtp):
+            _send_alert_email(
+                "user@test.com", mock_route, True, False, 65.0,
+                [_MOCK_FLIGHT_OUT], [_MOCK_FLIGHT_IN],
+            )
+
+    assert len(sent_messages) == 1
+    html_body = sent_messages[0].get_body(preferencelist=("html",)).get_content()
+    assert "FR1234" in html_body
+    assert "FR5678" in html_body
+    assert "Best price" in html_body
+    assert "65.00" in html_body  # cheapest total
 
 
 # ---------------------------------------------------------------------------
