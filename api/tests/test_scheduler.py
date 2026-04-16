@@ -501,9 +501,9 @@ def test_send_alert_email_smtp_failure_does_not_raise():
     # Must not raise
 
 
-def test_send_alert_email_includes_flight_table_in_html():
+def _get_alert_email_html(outbound_flights=None, inbound_flights=None):
+    """Helper: send a mock alert email and return the HTML body."""
     from scheduler import _send_alert_email
-
     mock_route = MagicMock()
     mock_route.origin = "DUB"
     mock_route.destination = "BCN"
@@ -512,7 +512,6 @@ def test_send_alert_email_includes_flight_table_in_html():
     mock_route.alert_price = 70
 
     sent_messages = []
-
     env = {"SMTP_HOST": "mailpit", "SMTP_PORT": "1025", "SMTP_USER": "", "SMTP_FROM": "x@x.com"}
     mock_smtp = MagicMock()
     mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
@@ -523,15 +522,32 @@ def test_send_alert_email_includes_flight_table_in_html():
         with patch("scheduler.smtplib.SMTP", return_value=mock_smtp):
             _send_alert_email(
                 "user@test.com", mock_route, True, False, 65.0,
-                [_MOCK_FLIGHT_OUT], [_MOCK_FLIGHT_IN],
+                outbound_flights, inbound_flights,
             )
+    return sent_messages[0].get_body(preferencelist=("html",)).get_content()
 
-    assert len(sent_messages) == 1
-    html_body = sent_messages[0].get_body(preferencelist=("html",)).get_content()
-    assert "FR1234" in html_body
-    assert "FR5678" in html_body
-    assert "Best price" in html_body
-    assert "65.00" in html_body  # cheapest total
+
+def test_send_alert_email_includes_flight_table_in_html():
+    html = _get_alert_email_html([_MOCK_FLIGHT_OUT], [_MOCK_FLIGHT_IN])
+    assert "FR1234" in html
+    assert "FR5678" in html
+    assert "Best price" in html
+    assert "65.00" in html  # cheapest total
+
+
+def test_send_alert_email_includes_single_booking_links():
+    html = _get_alert_email_html([_MOCK_FLIGHT_OUT], [_MOCK_FLIGHT_IN])
+    assert "Single" in html
+    assert "isReturn=false" in html
+    assert "originIata=DUB" in html
+
+
+def test_send_alert_email_includes_return_booking_links():
+    html = _get_alert_email_html([_MOCK_FLIGHT_OUT], [_MOCK_FLIGHT_IN])
+    assert "Return" in html
+    assert "isReturn=true" in html
+    assert "dateOut=2026-06-01" in html
+    assert "dateIn=2026-06-08" in html
 
 
 # ---------------------------------------------------------------------------
