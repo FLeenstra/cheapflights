@@ -160,7 +160,7 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
                       rel="noopener noreferrer"
                       className="text-xs font-medium px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 transition dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-200"
                     >
-                      1-way
+                      Single
                     </a>
                     {outboundDate && inboundDate && (
                       <a

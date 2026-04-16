@@ -74,9 +74,9 @@ describe('FlightList', () => {
     logos.forEach(logo => expect(logo).toHaveAttribute('src', '/ryanair.png'))
   })
 
-  it('shows a 1-way booking button per flight', () => {
+  it('shows a Single booking button per flight', () => {
     render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} />)
-    const link = screen.getByRole('link', { name: '1-way' })
+    const link = screen.getByRole('link', { name: 'Single' })
     expect(link).toHaveAttribute('href', expect.stringContaining('ryanair.com'))
     expect(link).toHaveAttribute('href', expect.stringContaining('isReturn=false'))
     expect(link).toHaveAttribute('target', '_blank')
