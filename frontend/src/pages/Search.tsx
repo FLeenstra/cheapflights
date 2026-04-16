@@ -102,6 +102,7 @@ export default function Search() {
       setDateFrom(from)
       setDateTo(to)
       setSearchedRoute({ origin: org, destination: dest, dateFrom: toISO(from), dateTo: toISO(to) })
+      if (data.outbound.flights.length > 0) setNotifyAvailable(false)
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -212,20 +213,26 @@ export default function Search() {
 
               {trackRoute && (
                 <div className="mt-4 space-y-4">
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none w-fit">
-                    <input
-                      type="checkbox"
-                      checked={notifyAvailable}
-                      onChange={e => {
-                        setSaveSuccess(false)
-                        setSaveError('')
-                        setNotifyAvailable(e.target.checked)
-                        if (e.target.checked) setAlertPrice('')
-                      }}
-                      className="w-4 h-4 rounded accent-brand-600 cursor-pointer"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-200">Notify when flights become available</span>
-                  </label>
+                  <div className={results && results.outbound.flights.length > 0 ? 'opacity-40 pointer-events-none select-none' : ''}>
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none w-fit">
+                      <input
+                        type="checkbox"
+                        checked={notifyAvailable}
+                        disabled={results !== null && results.outbound.flights.length > 0}
+                        onChange={e => {
+                          setSaveSuccess(false)
+                          setSaveError('')
+                          setNotifyAvailable(e.target.checked)
+                          if (e.target.checked) setAlertPrice('')
+                        }}
+                        className="w-4 h-4 rounded accent-brand-600 cursor-pointer"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-200">Notify when flights become available</span>
+                    </label>
+                    {results && results.outbound.flights.length > 0 && (
+                      <p className="text-xs text-gray-400 mt-1 dark:text-gray-500">Flights are already available on this route</p>
+                    )}
+                  </div>
 
                   <div className="flex flex-wrap items-end gap-3">
                     <div className={notifyAvailable ? 'opacity-40 pointer-events-none select-none' : ''}>
