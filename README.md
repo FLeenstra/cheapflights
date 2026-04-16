@@ -56,7 +56,7 @@ cd cheapflights
 cp .env.example .env
 ```
 
-Open `.env` and set a strong `SECRET_KEY`. The default Postgres credentials are fine for local use. SMTP settings are optional — if left blank the password-reset link is printed to the API container logs instead of emailed.
+Open `.env` and set a strong `SECRET_KEY`. The default Postgres credentials are fine for local use. SMTP settings are optional — if left blank the password-reset link and goal-reached alerts are printed to the API container logs instead of emailed.
 
 ```env
 POSTGRES_USER=cheapflights
@@ -97,7 +97,7 @@ The API creates all database tables and a default admin account on first startup
 
 The admin account is created automatically. Log in with these credentials to access the admin panel at `/admin`. Change the defaults via the `ADMIN_EMAIL` environment variable (and by updating the hardcoded password in `api/main.py`) before deploying to production.
 
-Password-reset emails are caught by **Mailpit** — open http://localhost:8025 to read them. No real email is sent in local development. To use a real mail provider in production, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` to your provider's credentials.
+Password-reset emails and goal-reached alert emails are caught by **Mailpit** — open http://localhost:8025 to read them. No real email is sent in local development. To use a real mail provider in production, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` to your provider's credentials.
 
 ---
 
@@ -112,7 +112,7 @@ Password-reset emails are caught by **Mailpit** — open http://localhost:8025 t
 | `DATABASE_URL` | No | derived from the above | Full SQLAlchemy connection string (set automatically by Docker Compose) |
 | `FRONTEND_URL` | No | `http://localhost:5173` | Base URL used in password-reset email links |
 | `COOKIE_SECURE` | No | `false` | Set to `true` in production (HTTPS) to add the `Secure` flag to the auth cookie |
-| `SMTP_HOST` | No | — | SMTP server hostname. If unset, reset links are logged to stdout |
+| `SMTP_HOST` | No | — | SMTP server hostname. If unset, reset links and alert emails are logged to stdout |
 | `SMTP_PORT` | No | `587` | SMTP port (STARTTLS) |
 | `SMTP_USER` | No | — | SMTP login username |
 | `SMTP_PASSWORD` | No | — | SMTP login password |
@@ -265,7 +265,7 @@ docker compose run --rm test pytest tests/ -v --cov=. --cov-report=term-missing
 
 The test suite uses an in-memory SQLite database for full isolation. All Ryanair API calls are mocked — no network access required.
 
-Current coverage: **99%** across all source files (139 tests; `routers/routes.py` and `models.py` at 100%).
+Current coverage: **99%** across all source files (147 tests; `routers/routes.py` and `models.py` at 100%).
 
 ### Frontend (vitest)
 
@@ -338,7 +338,7 @@ Every hour APScheduler runs `check_routes()`, which:
 2. For each route, fetches the cheapest outbound and inbound price from Ryanair.
 3. Evaluates whether the price goal (total ≤ `alert_price`) and/or availability goal (any outbound flight exists) are met.
 4. Writes a `RouteCheckLog` row recording the prices found, goal flags, and any error.
-5. If a goal is met, sets `route.is_active = False` so the route is skipped on all future runs.
+5. If a goal is met, sets `route.is_active = False` so the route is skipped on all future runs, and sends a styled HTML alert email to the user.
 
 The saved searches page reflects the goal status: once a goal is reached the card shows a green "Goal reached · \<date\>" banner and the search is no longer checked.
 
@@ -354,11 +354,12 @@ The saved searches page reflects the goal status: once a goal is reached the car
 - [x] Route auto-deactivated when its goal is reached (stops being checked)
 - [x] Saved searches show "Goal reached" banner with timestamp
 - [x] Admin panel — users list (sorted by searches), scheduler logs grouped by run, manual trigger
-- [ ] Price alert emails when a saved route drops below the target price
-- [ ] Availability alert emails when flights open on a tracked route
+- [x] Alert emails — styled HTML email sent to the user when a price or availability goal is reached
+- [ ] Return-trip total in the main results view
 - [ ] Return-trip total in the main results view
 - [ ] Support for multi-month searches
 - [ ] Other airlines beyond Ryanair
+
 
 ---
 

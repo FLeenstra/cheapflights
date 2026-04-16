@@ -330,3 +330,132 @@ def test_deactivated_route_not_checked_next_run(db):
         check_routes()
 
     mock_check.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Alert email — sent on goal reached, not sent otherwise
+# ---------------------------------------------------------------------------
+
+def test_alert_email_sent_when_price_goal_reached(db):
+    route = _make_route(db, alert_price=70)
+    with patch("scheduler._cheapest_for_date", side_effect=[30.0, 35.0]), \
+         patch("scheduler._send_alert_email") as mock_email:
+        from scheduler import _check_route
+        _check_route(db, route)
+
+    mock_email.assert_called_once()
+    args = mock_email.call_args[0]
+    assert args[0].endswith("@test.com")  # to_email is the user's email
+    assert args[2] is True   # price_goal
+    assert args[3] is False  # avail_goal
+
+
+def test_alert_email_sent_when_availability_goal_reached(db):
+    route = _make_route(db, notify_available=True)
+    with patch("scheduler._cheapest_for_date", side_effect=[29.99, None]), \
+         patch("scheduler._send_alert_email") as mock_email:
+        from scheduler import _check_route
+        _check_route(db, route)
+
+    mock_email.assert_called_once()
+    args = mock_email.call_args[0]
+    assert args[2] is False  # price_goal
+    assert args[3] is True   # avail_goal
+
+
+def test_alert_email_sent_when_both_goals_reached(db):
+    route = _make_route(db, alert_price=70, notify_available=True)
+    with patch("scheduler._cheapest_for_date", side_effect=[30.0, 35.0]), \
+         patch("scheduler._send_alert_email") as mock_email:
+        from scheduler import _check_route
+        _check_route(db, route)
+
+    mock_email.assert_called_once()
+    args = mock_email.call_args[0]
+    assert args[2] is True  # price_goal
+    assert args[3] is True  # avail_goal
+
+
+def test_alert_email_not_sent_when_goal_not_reached(db):
+    route = _make_route(db, alert_price=50)
+    with patch("scheduler._cheapest_for_date", side_effect=[40.0, 40.0]), \
+         patch("scheduler._send_alert_email") as mock_email:
+        from scheduler import _check_route
+        _check_route(db, route)
+
+    mock_email.assert_not_called()
+
+
+def test_alert_email_not_sent_on_api_error(db):
+    route = _make_route(db, alert_price=50)
+    with patch("scheduler._cheapest_for_date", side_effect=Exception("timeout")), \
+         patch("scheduler._send_alert_email") as mock_email:
+        from scheduler import _check_route
+        _check_route(db, route)
+
+    mock_email.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _send_alert_email — unit tests
+# ---------------------------------------------------------------------------
+
+def test_send_alert_email_no_smtp_host_returns_early():
+    import os
+    from unittest.mock import MagicMock
+    from scheduler import _send_alert_email
+
+    mock_route = MagicMock()
+    mock_route.origin = "DUB"
+    mock_route.destination = "BCN"
+    mock_route.date_from = "2026-06-01"
+    mock_route.date_to = "2026-06-08"
+    mock_route.alert_price = None
+
+    os.environ.pop("SMTP_HOST", None)
+    with patch("scheduler.smtplib.SMTP") as mock_smtp:
+        _send_alert_email("user@test.com", mock_route, True, False, 65.0)
+    mock_smtp.assert_not_called()
+
+
+def test_send_alert_email_smtp_called():
+    from unittest.mock import MagicMock
+    from scheduler import _send_alert_email
+
+    mock_route = MagicMock()
+    mock_route.origin = "DUB"
+    mock_route.destination = "BCN"
+    mock_route.date_from = "2026-06-01"
+    mock_route.date_to = "2026-06-08"
+    mock_route.alert_price = 70
+
+    env = {"SMTP_HOST": "mailpit", "SMTP_PORT": "1025", "SMTP_USER": "",
+           "SMTP_PASSWORD": "", "SMTP_FROM": "noreply@elcheeapo.com"}
+    mock_smtp = MagicMock()
+    mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
+    mock_smtp.__exit__ = MagicMock(return_value=False)
+
+    with patch.dict("os.environ", env):
+        with patch("scheduler.smtplib.SMTP", return_value=mock_smtp):
+            _send_alert_email("user@test.com", mock_route, True, False, 65.0)
+
+    mock_smtp.starttls.assert_not_called()   # no SMTP_USER → no TLS
+    mock_smtp.send_message.assert_called_once()
+
+
+def test_send_alert_email_smtp_failure_does_not_raise():
+    from unittest.mock import MagicMock
+    from scheduler import _send_alert_email
+
+    mock_route = MagicMock()
+    mock_route.origin = "DUB"
+    mock_route.destination = "BCN"
+    mock_route.date_from = "2026-06-01"
+    mock_route.date_to = "2026-06-08"
+    mock_route.alert_price = None
+
+    env = {"SMTP_HOST": "smtp.broken.com", "SMTP_PORT": "587", "SMTP_USER": "", "SMTP_PASSWORD": ""}
+    with patch.dict("os.environ", env):
+        with patch("scheduler.smtplib.SMTP", side_effect=ConnectionRefusedError("refused")):
+            _send_alert_email("user@test.com", mock_route, False, True, None)
+    # Must not raise
