@@ -231,10 +231,10 @@ def _send_expired_email(
 
           <!-- Header -->
           <tr>
-            <td style="background-color:#374151;border-radius:16px 16px 0 0;padding:36px 40px 32px;">
+            <td style="background-color:#1e40af;border-radius:16px 16px 0 0;padding:36px 40px 32px;">
               <table cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="background-color:#4b5563;border-radius:10px;padding:8px 10px;vertical-align:middle;">
+                  <td style="background-color:#2d55c8;border-radius:10px;padding:8px 10px;vertical-align:middle;">
                     <span style="font-size:20px;line-height:1;">&#9992;&#65039;</span>
                   </td>
                   <td style="padding-left:12px;vertical-align:middle;">
@@ -245,7 +245,7 @@ def _send_expired_email(
               <p style="margin:24px 0 0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2;">
                 Unfortunately, we could not find a flight that meets your criteria.
               </p>
-              <p style="margin:8px 0 0;color:#d1d5db;font-size:15px;line-height:1.5;">
+              <p style="margin:8px 0 0;color:#bfdbfe;font-size:15px;line-height:1.5;">
                 {origin} &rarr; {destination} &bull; {date_from} &ndash; {date_to}
               </p>
             </td>
