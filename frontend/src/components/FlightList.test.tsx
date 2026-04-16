@@ -74,13 +74,30 @@ describe('FlightList', () => {
     logos.forEach(logo => expect(logo).toHaveAttribute('src', '/ryanair.png'))
   })
 
-  it('links each flight card to the Ryanair booking page', () => {
+  it('links each flight card to the Ryanair booking page as one-way when no paired dates', () => {
     render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} />)
     const link = screen.getByRole('link')
     expect(link).toHaveAttribute('href', expect.stringContaining('ryanair.com'))
     expect(link).toHaveAttribute('href', expect.stringContaining('DUB'))
     expect(link).toHaveAttribute('href', expect.stringContaining('BCN'))
     expect(link).toHaveAttribute('href', expect.stringContaining('2025-06-01'))
+    expect(link).toHaveAttribute('href', expect.stringContaining('isReturn=false'))
     expect(link).toHaveAttribute('target', '_blank')
+  })
+
+  it('builds a return deeplink when outboundDate and inboundDate are provided', () => {
+    render(
+      <FlightList
+        {...baseProps}
+        flights={[FLIGHT]}
+        error={null}
+        outboundDate="2025-06-01"
+        inboundDate="2025-06-08"
+      />
+    )
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', expect.stringContaining('isReturn=true'))
+    expect(link).toHaveAttribute('href', expect.stringContaining('dateOut=2025-06-01'))
+    expect(link).toHaveAttribute('href', expect.stringContaining('dateIn=2025-06-08'))
   })
 })

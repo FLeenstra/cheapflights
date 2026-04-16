@@ -16,6 +16,8 @@ interface Props {
   from: string
   to: string
   date: string        // ISO date string for the selected day
+  outboundDate?: string
+  inboundDate?: string
   flights: Flight[]
   error: string | null
 }
@@ -32,13 +34,14 @@ function formatTime(iso: string) {
   })
 }
 
-function buildDeeplink(flight: Flight) {
-  const date = flight.departure_time.slice(0, 10)
+function buildDeeplink(flight: Flight, outboundDate?: string, inboundDate?: string) {
+  const isReturn = !!(outboundDate && inboundDate)
   const params = new URLSearchParams({
     adults: '1', teens: '0', children: '0', infants: '0',
-    dateOut: date,
+    dateOut: outboundDate ?? flight.departure_time.slice(0, 10),
+    ...(isReturn ? { dateIn: inboundDate! } : {}),
     isConnectedFlight: 'false',
-    isReturn: 'false',
+    isReturn: String(isReturn),
     originIata: flight.origin,
     destinationIata: flight.destination,
     toUs: 'AGREED',
@@ -46,7 +49,7 @@ function buildDeeplink(flight: Flight) {
   return `https://www.ryanair.com/gb/en/trip/flights/select?${params}`
 }
 
-export default function FlightList({ label, from, to, date, flights, error }: Props) {
+export default function FlightList({ label, from, to, date, outboundDate, inboundDate, flights, error }: Props) {
   const cheapestPrice = flights.length > 0 ? flights[0].price : null
   const currency = flights.length > 0 ? flights[0].currency : null
 
@@ -102,7 +105,7 @@ export default function FlightList({ label, from, to, date, flights, error }: Pr
           {flights.map((flight, i) => (
             <a
               key={i}
-              href={buildDeeplink(flight)}
+              href={buildDeeplink(flight, outboundDate, inboundDate)}
               target="_blank"
               rel="noopener noreferrer"
               className={`bg-white rounded-2xl border px-5 py-4 flex items-center justify-between transition hover:shadow-sm group dark:bg-gray-900 ${

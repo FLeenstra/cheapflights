@@ -321,6 +321,8 @@ export default function Search() {
               from={searchedRoute.origin.city}
               to={searchedRoute.destination.city}
               date={searchedRoute.dateFrom}
+              outboundDate={searchedRoute.dateFrom}
+              inboundDate={searchedRoute.dateTo}
               flights={results.outbound.flights}
               error={results.outbound.error}
             />
@@ -330,6 +332,8 @@ export default function Search() {
               from={searchedRoute.destination.city}
               to={searchedRoute.origin.city}
               date={searchedRoute.dateTo}
+              outboundDate={searchedRoute.dateFrom}
+              inboundDate={searchedRoute.dateTo}
               flights={results.inbound.flights}
               error={results.inbound.error}
             />
