@@ -48,7 +48,7 @@ function buildDeeplink(flight: Flight, outboundDate?: string, inboundDate?: stri
     destinationIata: flight.destination,
     toUs: 'AGREED',
   })
-  return `https://www.ryanair.com/gb/en/trip/flights/select?${params}`
+  return `https://www.ryanair.com/ie/en/trip/flights/select?${params}`
 }
 
 function isSelected(flight: Flight, selected?: Flight | null) {

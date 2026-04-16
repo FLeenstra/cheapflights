@@ -33,7 +33,7 @@ def _ryanair_url(origin: str, destination: str, date_out: str, date_in: str | No
     }
     if date_in:
         params["dateIn"] = str(date_in)
-    return "https://www.ryanair.com/gb/en/trip/flights/select?" + urlencode(params)
+    return "https://www.ryanair.com/ie/en/trip/flights/select?" + urlencode(params)
 
 
 def _flight_table_html(
