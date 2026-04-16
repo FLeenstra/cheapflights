@@ -577,3 +577,64 @@ class TestTimeWindow:
         start, end = _time_window("23:50")
         assert start == "23:20"
         assert end == "23:59"
+
+
+# ---------------------------------------------------------------------------
+# Tests for GET /flights/routes/{origin}
+# ---------------------------------------------------------------------------
+
+def _routes_response(destinations: list[str]):
+    mock = MagicMock()
+    mock.ok = True
+    mock.json.return_value = [
+        {"arrivalAirport": {"iataCode": iata}} for iata in destinations
+    ]
+    return mock
+
+
+class TestGetRoutes:
+
+    def setup_method(self):
+        import routers.flights as f
+        f._routes_cache.clear()
+
+    def test_returns_destinations_for_valid_origin(self, client):
+        with patch("routers.flights.requests.get", return_value=_routes_response(["BCN", "MAD", "LIS"])):
+            res = client.get("/flights/routes/DUB")
+        assert res.status_code == 200
+        assert set(res.json()["destinations"]) == {"BCN", "MAD", "LIS"}
+
+    def test_invalid_iata_returns_422(self, client):
+        res = client.get("/flights/routes/INVALID")
+        assert res.status_code == 422
+
+    def test_lowercase_origin_is_normalised(self, client):
+        with patch("routers.flights.requests.get", return_value=_routes_response(["BCN"])):
+            res = client.get("/flights/routes/dub")
+        assert res.status_code == 200
+        assert "BCN" in res.json()["destinations"]
+
+    def test_ryanair_api_error_returns_502(self, client):
+        with patch("routers.flights.requests.get", return_value=_error_response()):
+            res = client.get("/flights/routes/DUB")
+        assert res.status_code == 502
+
+    def test_network_exception_returns_502(self, client):
+        with patch("routers.flights.requests.get", side_effect=Exception("timeout")):
+            res = client.get("/flights/routes/DUB")
+        assert res.status_code == 502
+
+    def test_result_is_cached_on_second_call(self, client):
+        with patch("routers.flights.requests.get", return_value=_routes_response(["BCN"])) as mock_get:
+            client.get("/flights/routes/DUB")
+            client.get("/flights/routes/DUB")
+        assert mock_get.call_count == 1
+
+    def test_cache_is_bypassed_when_expired(self, client):
+        import routers.flights as f
+        import time
+        with patch("routers.flights.requests.get", return_value=_routes_response(["BCN"])) as mock_get:
+            client.get("/flights/routes/DUB")
+            f._routes_cache["DUB"] = (f._routes_cache["DUB"][0], time.time() - f._ROUTES_CACHE_TTL - 1)
+            client.get("/flights/routes/DUB")
+        assert mock_get.call_count == 2

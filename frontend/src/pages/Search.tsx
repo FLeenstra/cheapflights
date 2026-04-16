@@ -35,6 +35,8 @@ export default function Search() {
 
   const [origin, setOrigin] = useState<Airport | null>(null)
   const [destination, setDestination] = useState<Airport | null>(null)
+  const [allowedDestinations, setAllowedDestinations] = useState<Set<string> | null>(null)
+  const [routesLoading, setRoutesLoading] = useState(false)
   const [dateFrom, setDateFrom] = useState<Date | undefined>()
   const [dateTo, setDateTo] = useState<Date | undefined>()
   const [passengers, setPassengers] = useState(1)
@@ -81,6 +83,23 @@ export default function Search() {
   // doSearch is stable (no deps change it) — only re-run when state changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state])
+
+  useEffect(() => {
+    if (!origin) {
+      setAllowedDestinations(null)
+      return
+    }
+    let cancelled = false
+    setRoutesLoading(true)
+    fetch(`/api/flights/routes/${origin.iata}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!cancelled) setAllowedDestinations(new Set<string>(data.destinations))
+      })
+      .catch(() => { if (!cancelled) setAllowedDestinations(null) })
+      .finally(() => { if (!cancelled) setRoutesLoading(false) })
+    return () => { cancelled = true }
+  }, [origin])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -166,13 +185,19 @@ export default function Search() {
                 label="From"
                 placeholder="e.g. Dublin"
                 value={origin}
-                onChange={setOrigin}
+                onChange={airport => {
+                  setOrigin(airport)
+                  setDestination(null)
+                  setAllowedDestinations(null)
+                }}
               />
               <AirportInput
                 label="To"
                 placeholder="e.g. Barcelona"
                 value={destination}
                 onChange={setDestination}
+                allowedIata={allowedDestinations ?? undefined}
+                loading={routesLoading}
               />
               <DateRangePicker
                 from={dateFrom}

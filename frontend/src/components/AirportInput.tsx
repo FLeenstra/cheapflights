@@ -8,6 +8,8 @@ interface Props {
   placeholder: string
   value: Airport | null
   onChange: (airport: Airport) => void
+  allowedIata?: Set<string>
+  loading?: boolean
 }
 
 function match(airport: Airport, query: string): boolean {
@@ -27,15 +29,16 @@ function rank(airport: Airport, query: string): number {
   return 3
 }
 
-export default function AirportInput({ label, placeholder, value, onChange }: Props) {
+export default function AirportInput({ label, placeholder, value, onChange, allowedIata, loading }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [highlighted, setHighlighted] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const pool = allowedIata ? airports.filter(a => allowedIata.has(a.iata)) : airports
   const results = query.length >= 1
-    ? airports
+    ? pool
         .filter(a => match(a, query))
         .sort((a, b) => rank(a, query) - rank(b, query))
         .slice(0, 8)
@@ -87,6 +90,9 @@ export default function AirportInput({ label, placeholder, value, onChange }: Pr
 
       <div className="relative">
         <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none dark:text-gray-500" />
+        {loading && (
+          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-brand-300 border-t-transparent animate-spin pointer-events-none" />
+        )}
         <input
           ref={inputRef}
           type="text"

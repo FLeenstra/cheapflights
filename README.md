@@ -6,7 +6,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 
 ## Features
 
-- **Flight search** — real-time prices pulled from Ryanair's API for any origin/destination pair
+- **Flight search** — real-time prices pulled from Ryanair's API for any origin/destination pair; destination autocomplete is filtered to only routes Ryanair actually flies from the selected origin
 - **Price suggestions** — cheapest outbound + inbound prices for 7 date combinations (−3 to +3 days)
 - **Airport autocomplete** — fast local search across all IATA codes
 - **User accounts** — register, log in, and reset your password via a styled HTML email
@@ -269,7 +269,7 @@ docker compose run --rm test pytest tests/ -v --cov=. --cov-report=term-missing
 
 The test suite uses an in-memory SQLite database for full isolation. All Ryanair API calls are mocked — no network access required.
 
-Current coverage: **99%** across all source files (167 tests; `routers/routes.py` and `models.py` at 100%).
+Current coverage: **99%** across all source files (170 tests; `routers/routes.py` and `models.py` at 100%).
 
 ### Frontend (vitest)
 
@@ -362,6 +362,7 @@ The saved searches page reflects the goal status: once a goal is reached the car
 - [x] Alert emails — styled HTML email sent to the user when a price or availability goal is reached
 - [x] Return-trip total in the main results view (cheapest outbound + return, shown between the search form and results)
 - [x] Multi-passenger support — search, book, and track prices for up to 9 passengers; group totals shown throughout
+- [x] Route-aware destination autocomplete — only destinations Ryanair actually flies from the selected origin are shown (24 h cached)
 - [ ] Support for multi-month searches
 - [ ] Other airlines beyond Ryanair
 

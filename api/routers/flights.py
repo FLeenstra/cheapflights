@@ -1,4 +1,5 @@
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 
@@ -10,8 +11,12 @@ router = APIRouter(prefix="/flights", tags=["flights"])
 _BASE = "https://services-api.ryanair.com"
 _TIMETABLE_URL = _BASE + "/timtbl/3/schedules/{origin}/{destination}/years/{year}/months/{month}"
 _FARES_URL = _BASE + "/farfnd/v4/oneWayFares"
+_ROUTES_URL = "https://www.ryanair.com/api/views/locate/searchWidget/routes/en/airport/{origin}"
 _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; ElCheapo/1.0)"}
 _SUGGESTION_OFFSETS = range(-3, 4)  # -3 to +3 inclusive
+
+_ROUTES_CACHE_TTL = 24 * 3600  # 24 hours
+_routes_cache: dict[str, tuple[list[str], float]] = {}  # iata -> (destinations, timestamp)
 
 
 def _time_window(dep_time: str) -> tuple[str, str]:
@@ -116,6 +121,38 @@ def _search_date(origin: str, destination: str, d: date) -> tuple[list, str | No
 
 
 _IATA_RE = re.compile(r"^[A-Z]{3}$")
+
+
+@router.get("/routes/{origin}")
+def get_routes(origin: str):
+    origin = origin.strip().upper()
+    if not _IATA_RE.match(origin):
+        raise HTTPException(status_code=422, detail="origin must be a 3-letter IATA code")
+
+    cached = _routes_cache.get(origin)
+    if cached and time.time() - cached[1] < _ROUTES_CACHE_TTL:
+        return {"destinations": cached[0]}
+
+    try:
+        r = requests.get(
+            _ROUTES_URL.format(origin=origin),
+            headers=_HEADERS,
+            timeout=10,
+        )
+        if not r.ok:
+            raise HTTPException(status_code=502, detail="Failed to fetch routes from Ryanair")
+        destinations = [
+            route["arrivalAirport"]["iataCode"]
+            for route in r.json()
+            if route.get("arrivalAirport", {}).get("iataCode")
+        ]
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=502, detail="Failed to fetch routes from Ryanair")
+
+    _routes_cache[origin] = (destinations, time.time())
+    return {"destinations": destinations}
 
 
 @router.get("/search")

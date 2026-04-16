@@ -81,4 +81,26 @@ describe('AirportInput', () => {
     const input = screen.getByDisplayValue('Dublin (DUB)')
     expect(input).toBeInTheDocument()
   })
+
+  it('filters results to allowedIata when provided', () => {
+    render(<AirportInput {...baseProps} allowedIata={new Set(['BCN'])} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'a' } })
+    expect(screen.queryByText('Dublin')).not.toBeInTheDocument()
+    expect(screen.getByText('Barcelona')).toBeInTheDocument()
+  })
+
+  it('shows no results when query matches airport not in allowedIata', () => {
+    render(<AirportInput {...baseProps} allowedIata={new Set(['BCN'])} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Dublin' } })
+    expect(screen.queryByText('Dublin')).not.toBeInTheDocument()
+  })
+
+  it('shows loading spinner when loading prop is true', () => {
+    const { container } = render(<AirportInput {...baseProps} loading={true} />)
+    expect(container.querySelector('.animate-spin')).toBeInTheDocument()
+  })
 })
