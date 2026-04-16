@@ -211,6 +211,21 @@ export default function Search() {
 
               {trackRoute && (
                 <div className="mt-4 space-y-4">
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none w-fit">
+                    <input
+                      type="checkbox"
+                      checked={notifyAvailable}
+                      onChange={e => {
+                        setSaveSuccess(false)
+                        setSaveError('')
+                        setNotifyAvailable(e.target.checked)
+                        if (e.target.checked) setAlertPrice('')
+                      }}
+                      className="w-4 h-4 rounded accent-brand-600 cursor-pointer"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-200">Notify when flights become available</span>
+                  </label>
+
                   <div className="flex flex-wrap items-end gap-3">
                     <div className={notifyAvailable ? 'opacity-40 pointer-events-none select-none' : ''}>
                       <label className="block text-sm font-medium text-gray-700 mb-0.5 dark:text-gray-200">
@@ -246,21 +261,6 @@ export default function Search() {
                       {saving ? (editRouteId ? 'Updating…' : 'Saving…') : (editRouteId ? 'Update search' : 'Save search')}
                     </button>
                   </div>
-
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none w-fit">
-                    <input
-                      type="checkbox"
-                      checked={notifyAvailable}
-                      onChange={e => {
-                        setSaveSuccess(false)
-                        setSaveError('')
-                        setNotifyAvailable(e.target.checked)
-                        if (e.target.checked) setAlertPrice('')
-                      }}
-                      className="w-4 h-4 rounded accent-brand-600 cursor-pointer"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-200">Notify when flights become available</span>
-                  </label>
                 </div>
               )}
 
