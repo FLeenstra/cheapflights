@@ -14,7 +14,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
-from models import Alert, Flight, Route, RouteCheckLog
+from models import Route, RouteCheckLog
 from routers.flights import _cheapest_for_date, _search_date
 
 logger = logging.getLogger(__name__)
@@ -499,9 +499,6 @@ def _expire_route(db: Session, route: Route) -> None:
     alert_price = route.alert_price
     notify_available = route.notify_available
 
-    # Delete child records (no DB-level cascade defined)
-    db.query(Alert).filter(Alert.route_id == route.id).delete()
-    db.query(Flight).filter(Flight.route_id == route.id).delete()
     db.query(RouteCheckLog).filter(RouteCheckLog.route_id == route.id).delete()
     db.delete(route)
     db.commit()
@@ -583,8 +580,10 @@ def _check_route(db: Session, route: Route) -> None:
             in_flights, _ = _search_date(route.destination, route.origin, route.date_to)
             _send_alert_email(
                 user_email, route, price_goal_reached, available_goal_reached,
-                group_total, passengers,
-                out_flights or None, in_flights or None,
+                group_total,
+                passengers=passengers,
+                outbound_flights=out_flights or None,
+                inbound_flights=in_flights or None,
             )
 
         logger.info(

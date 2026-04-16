@@ -48,25 +48,7 @@ class Route(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User | None"] = relationship("User", back_populates="routes")
-    flights: Mapped[list["Flight"]] = relationship("Flight", back_populates="route")
-    alerts: Mapped[list["Alert"]] = relationship("Alert", back_populates="route")
     check_logs: Mapped[list["RouteCheckLog"]] = relationship("RouteCheckLog", back_populates="route")
-
-
-class Flight(Base):
-    __tablename__ = "flights"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    route_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("routes.id"), nullable=False)
-    flight_number: Mapped[str] = mapped_column(String, nullable=False)
-    price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
-    currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    departure_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    arrival_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    scraped_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    route: Mapped["Route"] = relationship("Route", back_populates="flights")
-    alerts: Mapped[list["Alert"]] = relationship("Alert", back_populates="flight")
 
 
 class RouteCheckLog(Base):
@@ -85,16 +67,3 @@ class RouteCheckLog(Base):
     error: Mapped[str | None] = mapped_column(String, nullable=True)
 
     route: Mapped["Route"] = relationship("Route", back_populates="check_logs")
-
-
-class Alert(Base):
-    __tablename__ = "alerts"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    route_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("routes.id"), nullable=False)
-    flight_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("flights.id"), nullable=False)
-    triggered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    notified: Mapped[bool] = mapped_column(Boolean, default=False)
-
-    route: Mapped["Route"] = relationship("Route", back_populates="alerts")
-    flight: Mapped["Flight"] = relationship("Flight", back_populates="alerts")

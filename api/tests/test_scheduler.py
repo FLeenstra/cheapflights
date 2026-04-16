@@ -422,11 +422,9 @@ def test_alert_email_receives_flight_lists_on_goal_reached(db):
         from scheduler import _check_route
         _check_route(db, route)
 
-    kwargs = mock_email.call_args
-    outbound_flights = kwargs[0][5]
-    inbound_flights = kwargs[0][6]
-    assert outbound_flights == [_MOCK_FLIGHT_OUT]
-    assert inbound_flights == [_MOCK_FLIGHT_IN]
+    _, kwargs = mock_email.call_args
+    assert kwargs["outbound_flights"] == [_MOCK_FLIGHT_OUT]
+    assert kwargs["inbound_flights"] == [_MOCK_FLIGHT_IN]
 
 
 def test_search_date_not_called_when_goal_not_reached(db):
@@ -522,7 +520,9 @@ def _get_alert_email_html(outbound_flights=None, inbound_flights=None):
         with patch("scheduler.smtplib.SMTP", return_value=mock_smtp):
             _send_alert_email(
                 "user@test.com", mock_route, True, False, 65.0,
-                outbound_flights, inbound_flights,
+                passengers=1,
+                outbound_flights=outbound_flights,
+                inbound_flights=inbound_flights,
             )
     return sent_messages[0].get_body(preferencelist=("html",)).get_content()
 
