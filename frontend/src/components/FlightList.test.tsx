@@ -35,7 +35,7 @@ describe('FlightList', () => {
   it('renders flight cards', () => {
     render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} />)
     expect(screen.getByText('FR1234')).toBeInTheDocument()
-    expect(screen.getByText(/79/)).toBeInTheDocument()
+    expect(screen.getAllByText(/79/).length).toBeGreaterThan(0)
   })
 
   it('shows "Best price" badge on cheapest flight', () => {
@@ -46,7 +46,7 @@ describe('FlightList', () => {
 
   it('shows cheapest price in header', () => {
     render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} />)
-    expect(screen.getByText(/79.99/)).toBeInTheDocument()
+    expect(screen.getAllByText(/79.99/).length).toBeGreaterThan(0)
   })
 
   it('shows flight count in header', () => {
@@ -64,5 +64,13 @@ describe('FlightList', () => {
   it('shows label in header', () => {
     render(<FlightList {...baseProps} flights={[]} error={null} />)
     expect(screen.getByText('Outbound')).toBeInTheDocument()
+  })
+
+  it('shows Ryanair logo on each flight card', () => {
+    const second: Flight = { ...FLIGHT, flight_number: 'FR5678', price: 120 }
+    render(<FlightList {...baseProps} flights={[FLIGHT, second]} error={null} />)
+    const logos = screen.getAllByAltText('Ryanair')
+    expect(logos).toHaveLength(2)
+    logos.forEach(logo => expect(logo).toHaveAttribute('src', '/ryanair.png'))
   })
 })
