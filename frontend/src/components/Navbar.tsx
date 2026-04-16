@@ -1,11 +1,13 @@
-import { Bookmark, LogOut, Plane, Search, ShieldCheck } from 'lucide-react'
+import { Bookmark, LogOut, Moon, Plane, Search, ShieldCheck, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useDarkMode } from '../lib/useDarkMode'
 
 export default function Navbar() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [isAdmin, setIsAdmin] = useState(false)
+  const { theme, toggle } = useDarkMode()
 
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'include' })
@@ -54,13 +56,23 @@ export default function Navbar() {
           </div>
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition dark:text-gray-400 dark:hover:text-gray-200"
-        >
-          <LogOut className="w-4 h-4" />
-          Sign out
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggle}
+            aria-label="Toggle dark mode"
+            className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition dark:text-gray-500 dark:hover:text-gray-200 dark:hover:bg-gray-800"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition dark:text-gray-400 dark:hover:text-gray-200"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign out
+          </button>
+        </div>
       </div>
     </nav>
   )
