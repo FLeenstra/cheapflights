@@ -14,7 +14,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
-from models import Route, RouteCheckLog
+from models import Alert, Flight, Route, RouteCheckLog
 from routers.flights import _cheapest_for_date
 
 logger = logging.getLogger(__name__)
@@ -176,9 +176,206 @@ def _send_alert_email(
         logger.error("[scheduler] Failed to send alert email to %s: %s", to_email, exc)
 
 
+def _send_expired_email(
+    to_email: str,
+    origin: str,
+    destination: str,
+    date_from,
+    date_to,
+    alert_price,
+    notify_available: bool,
+) -> None:
+    host = os.getenv("SMTP_HOST")
+    if not host:
+        logger.info(
+            "[scheduler] Expired email (no SMTP): %s\u2192%s unmet goal for %s",
+            origin, destination, to_email,
+        )
+        return
+
+    port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_password = os.getenv("SMTP_PASSWORD", "")
+    from_addr = os.getenv("SMTP_FROM", smtp_user)
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+    subject = f"Your search for {origin}\u2192{destination} has expired"
+
+    goal_lines_html = ""
+    goal_lines_text = ""
+    if alert_price is not None:
+        goal_lines_html += (
+            f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
+            f'Price target: <strong>&euro;{float(alert_price):.2f}</strong> combined return</p>'
+        )
+        goal_lines_text += f"Price target: €{float(alert_price):.2f} combined return\n"
+    if notify_available:
+        goal_lines_html += (
+            f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
+            f'Availability alert: notify when any outbound flight appears</p>'
+        )
+        goal_lines_text += "Availability alert: notify when any outbound flight appears\n"
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="520" cellpadding="0" cellspacing="0">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#374151;border-radius:16px 16px 0 0;padding:36px 40px 32px;">
+              <table cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background-color:#4b5563;border-radius:10px;padding:8px 10px;vertical-align:middle;">
+                    <span style="font-size:20px;line-height:1;">&#9992;&#65039;</span>
+                  </td>
+                  <td style="padding-left:12px;vertical-align:middle;">
+                    <span style="color:#ffffff;font-size:20px;font-weight:700;">El Cheapo</span>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2;">
+                Unfortunately, we could not find a flight that meets your criteria.
+              </p>
+              <p style="margin:8px 0 0;color:#d1d5db;font-size:15px;line-height:1.5;">
+                {origin} &rarr; {destination} &bull; {date_from} &ndash; {date_to}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="background-color:#ffffff;padding:36px 40px;">
+              <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
+                The departure date for your tracked route has now passed. Despite checking every hour,
+                no flight matching your criteria became available in time.
+              </p>
+
+              <p style="margin:0 0 8px;color:#6b7280;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Your criteria</p>
+              {goal_lines_html}
+
+              <!-- CTA button -->
+              <table cellpadding="0" cellspacing="0" style="margin:24px 0 28px;">
+                <tr>
+                  <td style="background-color:#2563eb;border-radius:10px;">
+                    <a href="{frontend_url}"
+                       style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
+                      Search for new flights
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
+
+              <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
+                This saved search has been removed. You can set up a new alert at any time.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f8fafc;border-radius:0 0 16px 16px;border-top:1px solid #e5e7eb;padding:20px 40px;">
+              <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">
+                &#169; El Cheapo &middot; Sent to {to_email}
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    plain = (
+        f"Unfortunately, we could not find a flight that meets your criteria.\n\n"
+        f"Route: {origin} → {destination}\n"
+        f"Dates: {date_from} – {date_to}\n\n"
+        f"Your criteria:\n{goal_lines_text}\n"
+        f"The departure date has now passed. This saved search has been removed.\n"
+        f"You can set up a new alert at: {frontend_url}\n\n"
+        f"— El Cheapo\n"
+    )
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = from_addr
+    msg["To"] = to_email
+    msg.set_content(plain)
+    msg.add_alternative(html, subtype="html")
+
+    try:
+        with smtplib.SMTP(host, port) as smtp:
+            if smtp_user:
+                smtp.starttls()
+                smtp.login(smtp_user, smtp_password)
+            smtp.send_message(msg)
+    except Exception as exc:
+        logger.error("[scheduler] Failed to send expired email to %s: %s", to_email, exc)
+
+
+def expire_routes() -> int:
+    """Delete active routes whose departure has passed without meeting their goal.
+    Sends a notification email to the user for each expired route. Returns count deleted."""
+    db = SessionLocal()
+    try:
+        expired = db.query(Route).filter(
+            Route.is_active == True,  # noqa: E712
+            Route.date_from < date.today(),
+            or_(Route.alert_price.isnot(None), Route.notify_available == True),  # noqa: E712
+        ).all()
+
+        logger.info("[scheduler] Expiring %d route(s) with unmet goals", len(expired))
+
+        for route in expired:
+            _expire_route(db, route)
+
+        return len(expired)
+    finally:
+        db.close()
+
+
+def _expire_route(db: Session, route: Route) -> None:
+    # Capture values before deletion
+    user_email = route.user.email if route.user else None
+    origin = route.origin
+    destination = route.destination
+    date_from = route.date_from
+    date_to = route.date_to
+    alert_price = route.alert_price
+    notify_available = route.notify_available
+
+    # Delete child records (no DB-level cascade defined)
+    db.query(Alert).filter(Alert.route_id == route.id).delete()
+    db.query(Flight).filter(Flight.route_id == route.id).delete()
+    db.query(RouteCheckLog).filter(RouteCheckLog.route_id == route.id).delete()
+    db.delete(route)
+    db.commit()
+
+    logger.info(
+        "[scheduler] Expired %s\u2192%s (departure %s passed without goal met)",
+        origin, destination, date_from,
+    )
+
+    if user_email:
+        _send_expired_email(user_email, origin, destination, date_from, date_to, alert_price, notify_available)
+
+
 def check_routes() -> int:
     """Entry point called by APScheduler every hour. Returns number of routes checked."""
     db = SessionLocal()
+    checked = 0
     try:
         routes = db.query(Route).filter(
             Route.is_active == True,  # noqa: E712
@@ -187,13 +384,15 @@ def check_routes() -> int:
         ).all()
 
         logger.info("[scheduler] Checking %d route(s)", len(routes))
+        checked = len(routes)
 
         for route in routes:
             _check_route(db, route)
-
-        return len(routes)
     finally:
         db.close()
+
+    expire_routes()
+    return checked
 
 
 def _check_route(db: Session, route: Route) -> None:

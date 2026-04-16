@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from models import Route, RouteCheckLog, User
+from unittest.mock import MagicMock
 
 _counter = itertools.count()
 
@@ -402,7 +403,6 @@ def test_alert_email_not_sent_on_api_error(db):
 
 def test_send_alert_email_no_smtp_host_returns_early():
     import os
-    from unittest.mock import MagicMock
     from scheduler import _send_alert_email
 
     mock_route = MagicMock()
@@ -419,7 +419,6 @@ def test_send_alert_email_no_smtp_host_returns_early():
 
 
 def test_send_alert_email_smtp_called():
-    from unittest.mock import MagicMock
     from scheduler import _send_alert_email
 
     mock_route = MagicMock()
@@ -444,7 +443,6 @@ def test_send_alert_email_smtp_called():
 
 
 def test_send_alert_email_smtp_failure_does_not_raise():
-    from unittest.mock import MagicMock
     from scheduler import _send_alert_email
 
     mock_route = MagicMock()
@@ -458,4 +456,167 @@ def test_send_alert_email_smtp_failure_does_not_raise():
     with patch.dict("os.environ", env):
         with patch("scheduler.smtplib.SMTP", side_effect=ConnectionRefusedError("refused")):
             _send_alert_email("user@test.com", mock_route, False, True, None)
+    # Must not raise
+
+
+# ---------------------------------------------------------------------------
+# expire_routes — route selection
+# ---------------------------------------------------------------------------
+
+def test_expire_routes_skips_future_routes(db):
+    _make_route(db, alert_price=50)  # date_from is in the future
+    with patch("scheduler.SessionLocal", return_value=_BorrowedSession(db)), \
+         patch("scheduler._expire_route") as mock_expire:
+        from scheduler import expire_routes
+        expire_routes()
+    mock_expire.assert_not_called()
+
+
+def test_expire_routes_skips_routes_without_alert(db):
+    _make_route(db, date_from=_PAST_FROM, date_to=_PAST_TO)  # no alert
+    with patch("scheduler.SessionLocal", return_value=_BorrowedSession(db)), \
+         patch("scheduler._expire_route") as mock_expire:
+        from scheduler import expire_routes
+        expire_routes()
+    mock_expire.assert_not_called()
+
+
+def test_expire_routes_skips_inactive_routes(db):
+    # is_active=False means the goal was already reached — don't resend a failure email
+    _make_route(db, alert_price=50, date_from=_PAST_FROM, date_to=_PAST_TO, is_active=False)
+    with patch("scheduler.SessionLocal", return_value=_BorrowedSession(db)), \
+         patch("scheduler._expire_route") as mock_expire:
+        from scheduler import expire_routes
+        expire_routes()
+    mock_expire.assert_not_called()
+
+
+def test_expire_routes_expires_past_route_with_alert_price(db):
+    _make_route(db, alert_price=50, date_from=_PAST_FROM, date_to=_PAST_TO)
+    with patch("scheduler.SessionLocal", return_value=_BorrowedSession(db)), \
+         patch("scheduler._expire_route") as mock_expire:
+        from scheduler import expire_routes
+        expire_routes()
+    assert mock_expire.call_count == 1
+
+
+def test_expire_routes_expires_past_route_with_notify_available(db):
+    _make_route(db, notify_available=True, date_from=_PAST_FROM, date_to=_PAST_TO)
+    with patch("scheduler.SessionLocal", return_value=_BorrowedSession(db)), \
+         patch("scheduler._expire_route") as mock_expire:
+        from scheduler import expire_routes
+        expire_routes()
+    assert mock_expire.call_count == 1
+
+
+def test_expire_routes_returns_count(db):
+    _make_route(db, alert_price=50, date_from=_PAST_FROM, date_to=_PAST_TO)
+    _make_route(db, notify_available=True, date_from=_PAST_FROM, date_to=_PAST_TO)
+    with patch("scheduler.SessionLocal", return_value=_BorrowedSession(db)), \
+         patch("scheduler._expire_route"):
+        from scheduler import expire_routes
+        count = expire_routes()
+    assert count == 2
+
+
+# ---------------------------------------------------------------------------
+# _expire_route — deletion and email
+# ---------------------------------------------------------------------------
+
+def test_expire_route_deletes_route(db):
+    route = _make_route(db, alert_price=50, date_from=_PAST_FROM, date_to=_PAST_TO)
+    route_id = route.id
+    with patch("scheduler._send_expired_email"):
+        from scheduler import _expire_route
+        _expire_route(db, route)
+    assert db.query(Route).filter(Route.id == route_id).first() is None
+
+
+def test_expire_route_deletes_check_logs(db):
+    route = _make_route(db, alert_price=50, date_from=_PAST_FROM, date_to=_PAST_TO)
+    db.add(RouteCheckLog(route_id=route.id, flights_found=False))
+    db.add(RouteCheckLog(route_id=route.id, flights_found=False))
+    db.commit()
+    assert db.query(RouteCheckLog).count() == 2
+
+    with patch("scheduler._send_expired_email"):
+        from scheduler import _expire_route
+        _expire_route(db, route)
+    assert db.query(RouteCheckLog).count() == 0
+
+
+def test_expire_route_sends_expired_email(db):
+    route = _make_route(db, alert_price=50, date_from=_PAST_FROM, date_to=_PAST_TO)
+    with patch("scheduler._send_expired_email") as mock_email:
+        from scheduler import _expire_route
+        _expire_route(db, route)
+    mock_email.assert_called_once()
+    args = mock_email.call_args[0]
+    assert args[0].endswith("@test.com")  # to_email
+    assert args[1] == "DUB"              # origin
+    assert args[2] == "BCN"              # destination
+
+
+def test_expire_route_email_includes_alert_price(db):
+    route = _make_route(db, alert_price=75, date_from=_PAST_FROM, date_to=_PAST_TO)
+    with patch("scheduler._send_expired_email") as mock_email:
+        from scheduler import _expire_route
+        _expire_route(db, route)
+    args = mock_email.call_args[0]
+    assert float(args[5]) == 75.0  # alert_price
+
+
+def test_expire_route_email_includes_notify_available(db):
+    route = _make_route(db, notify_available=True, date_from=_PAST_FROM, date_to=_PAST_TO)
+    with patch("scheduler._send_expired_email") as mock_email:
+        from scheduler import _expire_route
+        _expire_route(db, route)
+    args = mock_email.call_args[0]
+    assert args[6] is True  # notify_available
+
+
+# ---------------------------------------------------------------------------
+# check_routes calls expire_routes
+# ---------------------------------------------------------------------------
+
+def test_check_routes_calls_expire_routes(db):
+    with patch("scheduler.SessionLocal", return_value=_BorrowedSession(db)), \
+         patch("scheduler.expire_routes") as mock_expire:
+        from scheduler import check_routes
+        check_routes()
+    mock_expire.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _send_expired_email — unit tests
+# ---------------------------------------------------------------------------
+
+def test_send_expired_email_no_smtp_host_returns_early():
+    import os
+    from scheduler import _send_expired_email
+    os.environ.pop("SMTP_HOST", None)
+    with patch("scheduler.smtplib.SMTP") as mock_smtp:
+        _send_expired_email("user@test.com", "DUB", "BCN", "2026-01-01", "2026-01-08", 50, False)
+    mock_smtp.assert_not_called()
+
+
+def test_send_expired_email_smtp_called():
+    from scheduler import _send_expired_email
+    env = {"SMTP_HOST": "mailpit", "SMTP_PORT": "1025", "SMTP_USER": "",
+           "SMTP_PASSWORD": "", "SMTP_FROM": "noreply@elcheeapo.com"}
+    mock_smtp = MagicMock()
+    mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
+    mock_smtp.__exit__ = MagicMock(return_value=False)
+    with patch.dict("os.environ", env):
+        with patch("scheduler.smtplib.SMTP", return_value=mock_smtp):
+            _send_expired_email("user@test.com", "DUB", "BCN", "2026-01-01", "2026-01-08", 50, True)
+    mock_smtp.send_message.assert_called_once()
+
+
+def test_send_expired_email_smtp_failure_does_not_raise():
+    from scheduler import _send_expired_email
+    env = {"SMTP_HOST": "smtp.broken.com", "SMTP_PORT": "587", "SMTP_USER": "", "SMTP_PASSWORD": ""}
+    with patch.dict("os.environ", env):
+        with patch("scheduler.smtplib.SMTP", side_effect=ConnectionRefusedError("refused")):
+            _send_expired_email("user@test.com", "DUB", "BCN", "2026-01-01", "2026-01-08", None, True)
     # Must not raise
