@@ -99,7 +99,7 @@ def _send_alert_email(
                 </tr>
               </table>
               <p style="margin:24px 0 0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2;">
-                Your alert has been triggered!
+                We have found your flight!
               </p>
               <p style="margin:8px 0 0;color:#bfdbfe;font-size:15px;line-height:1.5;">
                 {origin} &rarr; {destination} &bull; {date_from} &ndash; {date_to}
