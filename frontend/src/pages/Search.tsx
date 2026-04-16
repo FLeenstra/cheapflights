@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import AirportInput from '../components/AirportInput'
 import DateRangePicker from '../components/DateRangePicker'
+import CheapestTotal from '../components/CheapestTotal'
 import FlightList, { type Flight } from '../components/FlightList'
 import Navbar from '../components/Navbar'
 import PriceSuggestions, { type Suggestion } from '../components/PriceSuggestions'
@@ -294,6 +295,15 @@ export default function Search() {
             </div>
             <div className="bg-white rounded-2xl border border-gray-100 h-36 animate-pulse dark:bg-gray-900 dark:border-gray-800" />
           </div>
+        )}
+
+        {/* Cheapest total summary */}
+        {!loading && results && (
+          <CheapestTotal
+            outboundPrice={results.outbound.flights[0]?.price ?? null}
+            inboundPrice={results.inbound.flights[0]?.price ?? null}
+            currency={results.currency}
+          />
         )}
 
         {/* Results */}

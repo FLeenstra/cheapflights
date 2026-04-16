@@ -1,0 +1,47 @@
+import { render, screen } from '@testing-library/react'
+import { describe, it, expect } from 'vitest'
+import CheapestTotal from './CheapestTotal'
+
+describe('CheapestTotal', () => {
+  it('renders nothing when both prices are null', () => {
+    const { container } = render(
+      <CheapestTotal outboundPrice={null} inboundPrice={null} currency="EUR" />
+    )
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('shows outbound and return prices with currency', () => {
+    render(<CheapestTotal outboundPrice={29.99} inboundPrice={34.99} currency="EUR" />)
+    expect(screen.getByText(/EUR 29.99/)).toBeInTheDocument()
+    expect(screen.getByText(/EUR 34.99/)).toBeInTheDocument()
+  })
+
+  it('computes and displays the correct total', () => {
+    render(<CheapestTotal outboundPrice={29.99} inboundPrice={34.99} currency="EUR" />)
+    expect(screen.getByText('EUR 64.98')).toBeInTheDocument()
+  })
+
+  it('shows "Cheapest total" label', () => {
+    render(<CheapestTotal outboundPrice={10} inboundPrice={20} currency="EUR" />)
+    expect(screen.getByText(/cheapest total/i)).toBeInTheDocument()
+  })
+
+  it('renders with only outbound price', () => {
+    render(<CheapestTotal outboundPrice={49.00} inboundPrice={null} currency="GBP" />)
+    expect(screen.getByText(/Outbound:/)).toBeInTheDocument()
+    expect(screen.queryByText(/Return:/)).not.toBeInTheDocument()
+    expect(screen.getAllByText(/GBP 49.00/)).toHaveLength(2) // breakdown + total
+  })
+
+  it('renders with only inbound price', () => {
+    render(<CheapestTotal outboundPrice={null} inboundPrice={55.50} currency="EUR" />)
+    expect(screen.queryByText(/Outbound:/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Return:/)).toBeInTheDocument()
+    expect(screen.getAllByText(/EUR 55.50/)).toHaveLength(2) // breakdown + total
+  })
+
+  it('formats prices to two decimal places', () => {
+    render(<CheapestTotal outboundPrice={10} inboundPrice={20} currency="EUR" />)
+    expect(screen.getByText('EUR 30.00')).toBeInTheDocument()
+  })
+})

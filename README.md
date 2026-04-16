@@ -356,8 +356,7 @@ The saved searches page reflects the goal status: once a goal is reached the car
 - [x] Saved searches show "Goal reached" banner with timestamp
 - [x] Admin panel — users list (sorted by searches), scheduler logs grouped by run, manual trigger
 - [x] Alert emails — styled HTML email sent to the user when a price or availability goal is reached
-- [ ] Return-trip total in the main results view
-- [ ] Return-trip total in the main results view
+- [x] Return-trip total in the main results view (cheapest outbound + return, shown between the search form and results)
 - [ ] Support for multi-month searches
 - [ ] Other airlines beyond Ryanair
 
