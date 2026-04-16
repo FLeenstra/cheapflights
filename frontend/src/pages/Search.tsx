@@ -212,7 +212,7 @@ export default function Search() {
               {trackRoute && (
                 <div className="mt-4 space-y-4">
                   <div className="flex flex-wrap items-end gap-3">
-                    <div>
+                    <div className={notifyAvailable ? 'opacity-40 pointer-events-none select-none' : ''}>
                       <label className="block text-sm font-medium text-gray-700 mb-0.5 dark:text-gray-200">
                         Max total price (€) <span className="text-gray-400 font-normal dark:text-gray-500">— optional</span>
                       </label>
@@ -221,6 +221,7 @@ export default function Search() {
                         type="text"
                         inputMode="numeric"
                         maxLength={6}
+                        disabled={notifyAvailable}
                         value={alertPrice}
                         onChange={e => {
                           setSaveSuccess(false)
@@ -254,6 +255,7 @@ export default function Search() {
                         setSaveSuccess(false)
                         setSaveError('')
                         setNotifyAvailable(e.target.checked)
+                        if (e.target.checked) setAlertPrice('')
                       }}
                       className="w-4 h-4 rounded accent-brand-600 cursor-pointer"
                     />
