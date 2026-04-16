@@ -10,6 +10,7 @@ interface SavedRoute {
   destination: string
   date_from: string
   date_to: string
+  passengers: number
   alert_price: number | null
   notify_available: boolean
   is_active: boolean
@@ -81,6 +82,7 @@ export default function SavedSearches() {
           destination: destinationAirport,
           dateFrom: new Date(route.date_from + 'T12:00:00'),
           dateTo: new Date(route.date_to + 'T12:00:00'),
+          passengers: route.passengers,
           alertPrice: route.alert_price?.toString() ?? '',
           notifyAvailable: route.notify_available,
         },
@@ -235,6 +237,9 @@ export default function SavedSearches() {
                       </div>
                       <div className="text-sm text-gray-500 mt-0.5 dark:text-gray-400">
                         {route.date_from} — {route.date_to}
+                        {route.passengers > 1 && (
+                          <span className="ml-2 text-gray-400 dark:text-gray-600">· {route.passengers} passengers</span>
+                        )}
                       </div>
                     </button>
 

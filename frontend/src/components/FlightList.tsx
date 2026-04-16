@@ -18,6 +18,7 @@ interface Props {
   date: string
   outboundDate?: string
   inboundDate?: string
+  passengers?: number
   flights: Flight[]
   error: string | null
   selectedFlight?: Flight | null
@@ -36,10 +37,10 @@ function formatTime(iso: string) {
   })
 }
 
-function buildDeeplink(flight: Flight, outboundDate?: string, inboundDate?: string) {
+function buildDeeplink(flight: Flight, outboundDate?: string, inboundDate?: string, passengers = 1) {
   const isReturn = !!(outboundDate && inboundDate)
   const params = new URLSearchParams({
-    adults: '1', teens: '0', children: '0', infants: '0',
+    adults: String(passengers), teens: '0', children: '0', infants: '0',
     dateOut: outboundDate ?? flight.departure_time.slice(0, 10),
     ...(isReturn ? { dateIn: inboundDate! } : {}),
     isConnectedFlight: 'false',
@@ -57,7 +58,7 @@ function isSelected(flight: Flight, selected?: Flight | null) {
     selected.departure_time === flight.departure_time
 }
 
-export default function FlightList({ label, from, to, date, outboundDate, inboundDate, flights, error, selectedFlight, onSelect }: Props) {
+export default function FlightList({ label, from, to, date, outboundDate, inboundDate, passengers = 1, flights, error, selectedFlight, onSelect }: Props) {
   const cheapestPrice = flights.length > 0 ? flights[0].price : null
   const currency = flights.length > 0 ? flights[0].currency : null
 
@@ -77,7 +78,7 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
         {cheapestPrice !== null && (
           <p className="text-sm text-gray-500 dark:text-gray-400">
             from <span className="font-semibold text-brand-600 dark:text-brand-400">{currency} {cheapestPrice.toFixed(2)}</span>
-            <span className="text-gray-400 ml-1 dark:text-gray-600">· {flights.length} flight{flights.length !== 1 ? 's' : ''}</span>
+            <span className="text-gray-400 ml-1 dark:text-gray-600">per person · {flights.length} flight{flights.length !== 1 ? 's' : ''}</span>
           </p>
         )}
       </div>
@@ -151,11 +152,11 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
                     <p className="text-xl font-bold text-gray-900 dark:text-white">
                       {flight.currency} {flight.price.toFixed(2)}
                     </p>
-                    <p className="text-xs text-gray-400 mt-0.5 dark:text-gray-600">{flight.flight_number}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 dark:text-gray-600">per person · {flight.flight_number}</p>
                   </div>
                   <div className="flex flex-col gap-1.5" onClick={e => e.stopPropagation()}>
                     <a
-                      href={buildDeeplink(flight)}
+                      href={buildDeeplink(flight, undefined, undefined, passengers)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs font-medium px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 transition dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-200"
@@ -164,7 +165,7 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
                     </a>
                     {outboundDate && inboundDate && (
                       <a
-                        href={buildDeeplink(flight, outboundDate, inboundDate)}
+                        href={buildDeeplink(flight, outboundDate, inboundDate, passengers)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs font-medium px-2.5 py-1 rounded-lg border border-brand-200 text-brand-600 hover:bg-brand-50 transition dark:border-brand-800 dark:text-brand-400 dark:hover:bg-brand-900/30"

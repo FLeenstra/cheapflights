@@ -11,7 +11,8 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 - **Airport autocomplete** — fast local search across all IATA codes
 - **User accounts** — register, log in, and reset your password via a styled HTML email
 - **Saved searches** — save any route search to your account; view, edit, and delete from a dedicated page sorted by departure date with sort and filter controls
-- **Alert options** — set a max price alert, an availability alert (notify when any flight appears), or both when saving a search
+- **Multi-passenger support** — search and track routes for 1–9 passengers; all totals (cheapest summary, alert threshold, and Ryanair booking links) are calculated for the full group
+- **Alert options** — set a max group price alert, an availability alert (notify when any flight appears), or both when saving a search
 - **Hourly route checker** — background scheduler checks every active route with an alert, logs results, and deactivates the route once its goal is met
 - **Goal reached indicator** — saved searches show a green "Goal reached" banner with the exact timestamp when a price or availability goal was first met
 - **Admin panel** — site admin can view all users (sorted by active searches), browse scheduler logs grouped by run, and manually trigger the route checker
@@ -155,12 +156,15 @@ All routes endpoints require authentication. The browser sends the httpOnly cook
   "destination": "BCN",
   "date_from": "2025-08-01",
   "date_to": "2025-08-08",
-  "alert_price": 49,
+  "passengers": 2,
+  "alert_price": 98,
   "notify_available": false
 }
 ```
 
-`alert_price` is optional. When provided it must be a whole number (integer, no decimals) and represents the **maximum combined price for the full return trip** (outbound + inbound).
+`passengers` is optional (default `1`, max `9`). All price totals and alert thresholds are calculated for the full group.
+
+`alert_price` is optional. When provided it must be a whole number (integer, no decimals) and represents the **maximum combined group total** (outbound + inbound × number of passengers).
 
 `notify_available` is optional (default `false`). When `true`, the user will be notified as soon as any flight becomes available on the route, regardless of price.
 
@@ -265,7 +269,7 @@ docker compose run --rm test pytest tests/ -v --cov=. --cov-report=term-missing
 
 The test suite uses an in-memory SQLite database for full isolation. All Ryanair API calls are mocked — no network access required.
 
-Current coverage: **99%** across all source files (162 tests; `routers/routes.py` and `models.py` at 100%).
+Current coverage: **99%** across all source files (167 tests; `routers/routes.py` and `models.py` at 100%).
 
 ### Frontend (vitest)
 
@@ -357,6 +361,7 @@ The saved searches page reflects the goal status: once a goal is reached the car
 - [x] Admin panel — users list (sorted by searches), scheduler logs grouped by run, manual trigger
 - [x] Alert emails — styled HTML email sent to the user when a price or availability goal is reached
 - [x] Return-trip total in the main results view (cheapest outbound + return, shown between the search form and results)
+- [x] Multi-passenger support — search, book, and track prices for up to 9 passengers; group totals shown throughout
 - [ ] Support for multi-month searches
 - [ ] Other airlines beyond Ryanair
 

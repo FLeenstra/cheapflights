@@ -53,6 +53,10 @@ def startup():
             "ALTER TABLE routes ADD COLUMN IF NOT EXISTS "
             "notify_available BOOLEAN NOT NULL DEFAULT FALSE"
         ))
+        conn.execute(text(
+            "ALTER TABLE routes ADD COLUMN IF NOT EXISTS "
+            "passengers INTEGER NOT NULL DEFAULT 1"
+        ))
     db = SessionLocal()
     try:
         if not db.query(User).filter(User.email == ADMIN_EMAIL).first():

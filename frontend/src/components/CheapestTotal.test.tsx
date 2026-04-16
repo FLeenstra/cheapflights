@@ -55,4 +55,25 @@ describe('CheapestTotal', () => {
     expect(screen.getByText(/selected total/i)).toBeInTheDocument()
     expect(screen.queryByText(/cheapest total/i)).not.toBeInTheDocument()
   })
+
+  it('multiplies total by passenger count for group total', () => {
+    render(<CheapestTotal outboundPrice={50} inboundPrice={50} currency="EUR" passengers={3} />)
+    expect(screen.getByText('EUR 300.00')).toBeInTheDocument()
+  })
+
+  it('shows "for N passengers" label when passengers > 1', () => {
+    render(<CheapestTotal outboundPrice={50} inboundPrice={50} currency="EUR" passengers={2} />)
+    expect(screen.getByText(/for 2 passengers/i)).toBeInTheDocument()
+  })
+
+  it('shows per-person subtotal when passengers > 1', () => {
+    render(<CheapestTotal outboundPrice={50} inboundPrice={50} currency="EUR" passengers={2} />)
+    expect(screen.getByText(/EUR 100.00 per person/)).toBeInTheDocument()
+  })
+
+  it('shows "per person" label (not for N passengers) when passengers is 1', () => {
+    render(<CheapestTotal outboundPrice={50} inboundPrice={50} currency="EUR" passengers={1} />)
+    expect(screen.getAllByText(/per person/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/for 1 passenger/i)).not.toBeInTheDocument()
+  })
 })

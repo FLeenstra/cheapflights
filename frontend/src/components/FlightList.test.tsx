@@ -34,7 +34,7 @@ describe('FlightList', () => {
 
   it('renders flight cards', () => {
     render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} />)
-    expect(screen.getByText('FR1234')).toBeInTheDocument()
+    expect(screen.getByText(/FR1234/)).toBeInTheDocument()
     expect(screen.getAllByText(/79/).length).toBeGreaterThan(0)
   })
 
@@ -106,7 +106,7 @@ describe('FlightList', () => {
   it('calls onSelect when a flight card is clicked', async () => {
     const onSelect = vi.fn()
     render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} onSelect={onSelect} />)
-    screen.getByText('FR1234').click()
+    screen.getByText(/FR1234/).click()
     expect(onSelect).toHaveBeenCalledWith(FLIGHT)
   })
 
@@ -115,6 +115,33 @@ describe('FlightList', () => {
       <FlightList {...baseProps} flights={[FLIGHT]} error={null} selectedFlight={FLIGHT} />
     )
     expect(container.firstChild).toBeDefined()
-    expect(screen.getByText('FR1234').closest('div[class*="ring-2"]')).toBeTruthy()
+    expect(screen.getByText(/FR1234/).closest('div[class*="ring-2"]')).toBeTruthy()
+  })
+
+  it('sets adults param to passenger count in Single deeplink', () => {
+    render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} passengers={3} />)
+    const link = screen.getByRole('link', { name: 'Single' })
+    expect(link).toHaveAttribute('href', expect.stringContaining('adults=3'))
+  })
+
+  it('sets adults param to passenger count in Return deeplink', () => {
+    render(
+      <FlightList
+        {...baseProps}
+        flights={[FLIGHT]}
+        error={null}
+        outboundDate="2025-06-01"
+        inboundDate="2025-06-08"
+        passengers={2}
+      />
+    )
+    const link = screen.getByRole('link', { name: 'Return' })
+    expect(link).toHaveAttribute('href', expect.stringContaining('adults=2'))
+  })
+
+  it('defaults to adults=1 when passengers is not provided', () => {
+    render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} />)
+    const link = screen.getByRole('link', { name: 'Single' })
+    expect(link).toHaveAttribute('href', expect.stringContaining('adults=1'))
   })
 })

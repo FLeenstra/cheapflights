@@ -123,6 +123,7 @@ def _send_alert_email(
     price_goal: bool,
     avail_goal: bool,
     total: float | None,
+    passengers: int = 1,
     outbound_flights: list[dict] | None = None,
     inbound_flights: list[dict] | None = None,
 ) -> None:
@@ -158,12 +159,20 @@ def _send_alert_email(
     goal_lines_html = ""
     goal_lines_text = ""
     if price_goal and total is not None and alert_price is not None:
+        pax_note = f" for {passengers} passenger{'s' if passengers > 1 else ''}" if passengers > 1 else ""
+        per_person = total / passengers if passengers > 1 else None
+        per_person_html = (
+            f' <span style="color:#6b7280;font-size:13px;">'
+            f'(&euro;{per_person:.2f} per person)</span>'
+        ) if per_person else ""
         goal_lines_html += (
             f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
-            f'<strong>Price goal reached</strong> &mdash; current total: '
-            f'<strong>&euro;{total:.2f}</strong> (your target: &euro;{float(alert_price):.2f})</p>'
+            f'<strong>Price goal reached</strong> &mdash; '
+            f'group total{pax_note}: <strong>&euro;{total:.2f}</strong>{per_person_html} '
+            f'(your target: &euro;{float(alert_price):.2f})</p>'
         )
-        goal_lines_text += f"Price goal reached — current total: €{total:.2f} (your target: €{float(alert_price):.2f})\n"
+        pp_text = f" (€{per_person:.2f} per person)" if per_person else ""
+        goal_lines_text += f"Price goal reached — group total{pax_note}: €{total:.2f}{pp_text} (your target: €{float(alert_price):.2f})\n"
     if avail_goal:
         goal_lines_html += (
             f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
@@ -185,14 +194,23 @@ def _send_alert_email(
     if outbound_flights and inbound_flights:
         cheapest_out = outbound_flights[0]["price"]
         cheapest_in = inbound_flights[0]["price"]
-        cheapest_total = cheapest_out + cheapest_in
+        cheapest_per_person = cheapest_out + cheapest_in
+        cheapest_group = cheapest_per_person * passengers
+        pax_label = f"{passengers} passenger{'s' if passengers > 1 else ''}"
+        pp_note_html = (
+            f' <span style="color:#6b7280;font-size:13px;">(&euro;{cheapest_per_person:.2f} per person)</span>'
+        ) if passengers > 1 else ""
         flights_html += (
             f'<p style="margin:0 0 24px;font-size:15px;color:#374151;">'
-            f'Cheapest combination: <strong style="color:#1d4ed8;">&euro;{cheapest_out:.2f}</strong> outbound + '
-            f'<strong style="color:#1d4ed8;">&euro;{cheapest_in:.2f}</strong> return = '
-            f'<strong style="font-size:17px;color:#1d4ed8;">&euro;{cheapest_total:.2f}</strong> total</p>'
+            f'Cheapest combination ({pax_label}): '
+            f'<strong style="color:#1d4ed8;">&euro;{cheapest_out:.2f}</strong> outbound + '
+            f'<strong style="color:#1d4ed8;">&euro;{cheapest_in:.2f}</strong> return '
+            f'&times; {passengers} = '
+            f'<strong style="font-size:17px;color:#1d4ed8;">&euro;{cheapest_group:.2f}</strong> total'
+            f'{pp_note_html}</p>'
         )
-        flights_text += f"Cheapest combination: €{cheapest_out:.2f} + €{cheapest_in:.2f} = €{cheapest_total:.2f} total\n\n"
+        pp_text = f" (€{cheapest_per_person:.2f} per person)" if passengers > 1 else ""
+        flights_text += f"Cheapest combination ({pax_label}): €{cheapest_out:.2f} + €{cheapest_in:.2f} × {passengers} = €{cheapest_group:.2f} total{pp_text}\n\n"
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -530,11 +548,13 @@ def _check_route(db: Session, route: Route) -> None:
             total = out_price + in_price
 
         flights_found = out_price is not None
+        passengers = route.passengers or 1
+        group_total = total * passengers if total is not None else None
 
         price_goal_reached = bool(
             route.alert_price is not None
-            and total is not None
-            and Decimal(str(total)) <= route.alert_price
+            and group_total is not None
+            and Decimal(str(group_total)) <= route.alert_price
         )
         available_goal_reached = bool(route.notify_available and flights_found)
 
@@ -562,7 +582,8 @@ def _check_route(db: Session, route: Route) -> None:
             out_flights, _ = _search_date(route.origin, route.destination, route.date_from)
             in_flights, _ = _search_date(route.destination, route.origin, route.date_to)
             _send_alert_email(
-                user_email, route, price_goal_reached, available_goal_reached, total,
+                user_email, route, price_goal_reached, available_goal_reached,
+                group_total, passengers,
                 out_flights or None, in_flights or None,
             )
 

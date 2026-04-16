@@ -37,8 +37,9 @@ export default function Search() {
   const [destination, setDestination] = useState<Airport | null>(null)
   const [dateFrom, setDateFrom] = useState<Date | undefined>()
   const [dateTo, setDateTo] = useState<Date | undefined>()
+  const [passengers, setPassengers] = useState(1)
   const [results, setResults] = useState<SearchResults | null>(null)
-  const [searchedRoute, setSearchedRoute] = useState<{ origin: Airport; destination: Airport; dateFrom: string; dateTo: string } | null>(null)
+  const [searchedRoute, setSearchedRoute] = useState<{ origin: Airport; destination: Airport; dateFrom: string; dateTo: string; passengers: number } | null>(null)
   const [selectedOutbound, setSelectedOutbound] = useState<Flight | null>(null)
   const [selectedInbound, setSelectedInbound] = useState<Flight | null>(null)
   const [loading, setLoading] = useState(false)
@@ -55,7 +56,7 @@ export default function Search() {
 
   // Pre-fill from navigation state when arriving from the edit button
   useEffect(() => {
-    const edit = (location.state as { editRoute?: { id: string; origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; alertPrice: string; notifyAvailable: boolean } } | null)?.editRoute
+    const edit = (location.state as { editRoute?: { id: string; origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; alertPrice: string; notifyAvailable: boolean; passengers: number } } | null)?.editRoute
     if (!edit) return
     setEditRouteId(edit.id)
     setOrigin(edit.origin)
@@ -64,6 +65,7 @@ export default function Search() {
     setDateTo(edit.dateTo)
     setAlertPrice(edit.alertPrice)
     setNotifyAvailable(edit.notifyAvailable)
+    setPassengers(edit.passengers ?? 1)
     setTrackRoute(true)
   }, [location.state])
 
@@ -105,7 +107,7 @@ export default function Search() {
       setSelectedInbound(null)
       setDateFrom(from)
       setDateTo(to)
-      setSearchedRoute({ origin: org, destination: dest, dateFrom: toISO(from), dateTo: toISO(to) })
+      setSearchedRoute({ origin: org, destination: dest, dateFrom: toISO(from), dateTo: toISO(to), passengers })
       if (data.outbound.flights.length > 0) setNotifyAvailable(false)
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Something went wrong')
@@ -131,6 +133,7 @@ export default function Search() {
           destination: destination.iata,
           date_from: toISO(dateFrom),
           date_to: toISO(dateTo),
+          passengers,
           alert_price: alertPrice ? parseInt(alertPrice, 10) : null,
           notify_available: notifyAvailable,
         }),
@@ -176,6 +179,17 @@ export default function Search() {
                 to={dateTo}
                 onChange={({ from, to }) => { setDateFrom(from); setDateTo(to) }}
               />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5 dark:text-gray-200">Passengers</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={9}
+                  value={passengers}
+                  onChange={e => setPassengers(Math.min(9, Math.max(1, parseInt(e.target.value, 10) || 1)))}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                />
+              </div>
             </div>
 
             {formError && (
@@ -241,9 +255,9 @@ export default function Search() {
                   <div className="flex flex-wrap items-end gap-3">
                     <div className={notifyAvailable ? 'opacity-40 pointer-events-none select-none' : ''}>
                       <label className="block text-sm font-medium text-gray-700 mb-0.5 dark:text-gray-200">
-                        Max total price (€) <span className="text-gray-400 font-normal dark:text-gray-500">— optional</span>
+                        Max group total (€) <span className="text-gray-400 font-normal dark:text-gray-500">— optional</span>
                       </label>
-                      <p className="text-xs text-gray-400 mb-1.5 dark:text-gray-500">Outbound + return combined</p>
+                      <p className="text-xs text-gray-400 mb-1.5 dark:text-gray-500">Outbound + return for all {passengers} passenger{passengers !== 1 ? 's' : ''}</p>
                       <input
                         type="text"
                         inputMode="numeric"
@@ -314,6 +328,7 @@ export default function Search() {
             outboundPrice={(selectedOutbound ?? results.outbound.flights[0])?.price ?? null}
             inboundPrice={(selectedInbound ?? results.inbound.flights[0])?.price ?? null}
             currency={results.currency}
+            passengers={passengers}
             isCustomSelection={!!(selectedOutbound || selectedInbound)}
           />
         )}
@@ -328,6 +343,7 @@ export default function Search() {
               date={searchedRoute.dateFrom}
               outboundDate={searchedRoute.dateFrom}
               inboundDate={searchedRoute.dateTo}
+              passengers={searchedRoute.passengers}
               flights={results.outbound.flights}
               error={results.outbound.error}
               selectedFlight={selectedOutbound}
@@ -341,6 +357,7 @@ export default function Search() {
               date={searchedRoute.dateTo}
               outboundDate={searchedRoute.dateFrom}
               inboundDate={searchedRoute.dateTo}
+              passengers={searchedRoute.passengers}
               flights={results.inbound.flights}
               error={results.inbound.error}
               selectedFlight={selectedInbound}
