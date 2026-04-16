@@ -65,6 +65,7 @@ export default function SavedSearches() {
           destination: destinationAirport,
           dateFrom: new Date(route.date_from + 'T12:00:00'),
           dateTo: new Date(route.date_to + 'T12:00:00'),
+          passengers: route.passengers,
         },
       },
     })

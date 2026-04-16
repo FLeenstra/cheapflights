@@ -73,13 +73,15 @@ export default function Search() {
 
   // Immediately run a search when arriving from a saved-search card click
   useEffect(() => {
-    const run = (location.state as { runSearch?: { origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date } } | null)?.runSearch
+    const run = (location.state as { runSearch?: { origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; passengers?: number } } | null)?.runSearch
     if (!run) return
+    const pax = run.passengers ?? 1
     setOrigin(run.origin)
     setDestination(run.destination)
     setDateFrom(run.dateFrom)
     setDateTo(run.dateTo)
-    doSearch(run.origin, run.destination, run.dateFrom, run.dateTo)
+    setPassengers(pax)
+    doSearch(run.origin, run.destination, run.dateFrom, run.dateTo, pax)
   // doSearch is stable (no deps change it) — only re-run when state changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state])
@@ -107,7 +109,7 @@ export default function Search() {
     await doSearch(origin, destination, dateFrom, dateTo)
   }
 
-  async function doSearch(org: Airport, dest: Airport, from: Date, to: Date) {
+  async function doSearch(org: Airport, dest: Airport, from: Date, to: Date, pax = passengers) {
     setFormError('')
     setResults(null)
     setLoading(true)
@@ -126,7 +128,7 @@ export default function Search() {
       setSelectedInbound(null)
       setDateFrom(from)
       setDateTo(to)
-      setSearchedRoute({ origin: org, destination: dest, dateFrom: toISO(from), dateTo: toISO(to), passengers })
+      setSearchedRoute({ origin: org, destination: dest, dateFrom: toISO(from), dateTo: toISO(to), passengers: pax })
       if (data.outbound.flights.length > 0) setNotifyAvailable(false)
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Something went wrong')
