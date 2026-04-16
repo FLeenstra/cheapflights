@@ -64,11 +64,11 @@ function usePagination<T>(items: T[], pageSize: number) {
 function Pagination({ page, totalPages, setPage }: { page: number; totalPages: number; setPage: (p: number) => void }) {
   if (totalPages <= 1) return null
   return (
-    <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 text-sm text-gray-500">
+    <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
       <button
         onClick={() => setPage(page - 1)}
         disabled={page === 1}
-        className="px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+        className="px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition dark:border-gray-700 dark:hover:bg-gray-800"
       >
         Prev
       </button>
@@ -78,7 +78,7 @@ function Pagination({ page, totalPages, setPage }: { page: number; totalPages: n
       <button
         onClick={() => setPage(page + 1)}
         disabled={page === totalPages}
-        className="px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+        className="px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition dark:border-gray-700 dark:hover:bg-gray-800"
       >
         Next
       </button>
@@ -163,7 +163,7 @@ export default function Admin() {
   const runPagination = usePagination(runs, 5)
 
   return (
-    <div className="min-h-screen bg-brand-50">
+    <div className="min-h-screen bg-brand-50 dark:bg-gray-950">
       <Navbar />
 
       <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
@@ -171,18 +171,18 @@ export default function Admin() {
         {/* Header + run button */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Admin panel</h1>
-            <p className="text-gray-500 text-sm mt-0.5">Scheduler logs, users, and manual controls</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Admin panel</h1>
+            <p className="text-gray-500 text-sm mt-0.5 dark:text-gray-400">Scheduler logs, users, and manual controls</p>
           </div>
 
           <div className="flex items-center gap-3">
             {runResult && (
-              <span className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-2">
+              <span className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-2 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
                 Checked {runResult.routes_checked} route{runResult.routes_checked !== 1 ? 's' : ''}
               </span>
             )}
             {runError && (
-              <span className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-2">
+              <span className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-2 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
                 {runError}
               </span>
             )}
@@ -200,29 +200,29 @@ export default function Admin() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
             {error}
           </div>
         )}
 
         {/* Users */}
         <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">
+          <h2 className="text-lg font-semibold text-gray-900 mb-3 dark:text-white">
             Users
             {!loadingUsers && (
-              <span className="ml-2 text-sm font-normal text-gray-400">{users.length}</span>
+              <span className="ml-2 text-sm font-normal text-gray-400 dark:text-gray-500">{users.length}</span>
             )}
           </h2>
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden dark:bg-gray-900 dark:border-gray-800">
             {loadingUsers ? (
               <div className="h-32 animate-pulse" />
             ) : users.length === 0 ? (
-              <p className="text-gray-400 text-sm p-8 text-center">No users yet.</p>
+              <p className="text-gray-400 text-sm p-8 text-center dark:text-gray-500">No users yet.</p>
             ) : (
               <>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-100 text-left text-gray-500 text-xs uppercase tracking-wide">
+                    <tr className="border-b border-gray-100 text-left text-gray-500 text-xs uppercase tracking-wide dark:border-gray-800 dark:text-gray-400">
                       <th className="px-5 py-3">Email</th>
                       <th className="px-5 py-3">Joined</th>
                       <th className="px-5 py-3 text-right">Saved searches</th>
@@ -230,11 +230,11 @@ export default function Admin() {
                   </thead>
                   <tbody>
                     {userPagination.slice.map(u => (
-                      <tr key={u.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition">
-                        <td className="px-5 py-3 font-medium text-gray-900">{u.email}</td>
-                        <td className="px-5 py-3 text-gray-500">{fmtDate(u.created_at)}</td>
+                      <tr key={u.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition dark:border-gray-800 dark:hover:bg-gray-800">
+                        <td className="px-5 py-3 font-medium text-gray-900 dark:text-white">{u.email}</td>
+                        <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{fmtDate(u.created_at)}</td>
                         <td className="px-5 py-3 text-right">
-                          <span className={`font-semibold ${u.route_count > 0 ? 'text-brand-600' : 'text-gray-400'}`}>
+                          <span className={`font-semibold ${u.route_count > 0 ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-600'}`}>
                             {u.route_count}
                           </span>
                         </td>
@@ -254,20 +254,20 @@ export default function Admin() {
 
         {/* Scheduler logs */}
         <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">
+          <h2 className="text-lg font-semibold text-gray-900 mb-3 dark:text-white">
             Scheduler logs
             {!loadingLogs && (
-              <span className="ml-2 text-sm font-normal text-gray-400">
+              <span className="ml-2 text-sm font-normal text-gray-400 dark:text-gray-500">
                 {runs.length} run{runs.length !== 1 ? 's' : ''}
                 {logs.length === 200 ? ' (last 200 entries)' : ''}
               </span>
             )}
           </h2>
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden dark:bg-gray-900 dark:border-gray-800">
             {loadingLogs ? (
               <div className="h-32 animate-pulse" />
             ) : runs.length === 0 ? (
-              <p className="text-gray-400 text-sm p-8 text-center">
+              <p className="text-gray-400 text-sm p-8 text-center dark:text-gray-500">
                 No scheduler logs yet. Run the check or wait for the hourly job.
               </p>
             ) : (
@@ -277,28 +277,28 @@ export default function Admin() {
                   const goalsReached = run.logs.filter(l => l.price_goal_reached || l.available_goal_reached).length
                   const errors = run.logs.filter(l => l.error).length
                   return (
-                    <div key={run.runTime} className="border-b border-gray-100 last:border-0">
+                    <div key={run.runTime} className="border-b border-gray-100 last:border-0 dark:border-gray-800">
                       {/* Run header row */}
                       <button
                         onClick={() => toggleRun(run.runTime)}
-                        className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition text-left"
+                        className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition text-left dark:hover:bg-gray-800"
                       >
                         {isOpen
-                          ? <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
-                          : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />}
-                        <span className="font-medium text-gray-900 text-sm min-w-[160px]">
+                          ? <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 dark:text-gray-500" />
+                          : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0 dark:text-gray-500" />}
+                        <span className="font-medium text-gray-900 text-sm min-w-[160px] dark:text-white">
                           {fmtDate(run.runTime)}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           {run.logs.length} route{run.logs.length !== 1 ? 's' : ''} checked
                         </span>
                         {goalsReached > 0 && (
-                          <span className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+                          <span className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
                             {goalsReached} goal{goalsReached !== 1 ? 's' : ''} reached
                           </span>
                         )}
                         {errors > 0 && (
-                          <span className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
+                          <span className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
                             {errors} error{errors !== 1 ? 's' : ''}
                           </span>
                         )}
@@ -306,10 +306,10 @@ export default function Admin() {
 
                       {/* Expanded log rows */}
                       {isOpen && (
-                        <div className="border-t border-gray-50 overflow-x-auto">
+                        <div className="border-t border-gray-50 overflow-x-auto dark:border-gray-800">
                           <table className="w-full text-sm">
                             <thead>
-                              <tr className="bg-gray-50 text-left text-gray-500 text-xs uppercase tracking-wide">
+                              <tr className="bg-gray-50 text-left text-gray-500 text-xs uppercase tracking-wide dark:bg-gray-800 dark:text-gray-400">
                                 <th className="px-5 py-2.5">Route</th>
                                 <th className="px-5 py-2.5">Dates</th>
                                 <th className="px-5 py-2.5 text-right">Outbound</th>
@@ -322,27 +322,27 @@ export default function Admin() {
                             </thead>
                             <tbody>
                               {run.logs.map(log => (
-                                <tr key={log.id} className="border-t border-gray-50 hover:bg-gray-50 transition">
-                                  <td className="px-5 py-2.5 font-medium text-gray-900 whitespace-nowrap">
+                                <tr key={log.id} className="border-t border-gray-50 hover:bg-gray-50 transition dark:border-gray-800 dark:hover:bg-gray-800">
+                                  <td className="px-5 py-2.5 font-medium text-gray-900 whitespace-nowrap dark:text-white">
                                     {log.origin} → {log.destination}
                                   </td>
-                                  <td className="px-5 py-2.5 text-gray-500 whitespace-nowrap text-xs">
+                                  <td className="px-5 py-2.5 text-gray-500 whitespace-nowrap text-xs dark:text-gray-400">
                                     {log.date_from}<br />{log.date_to}
                                   </td>
-                                  <td className="px-5 py-2.5 text-right text-gray-700">{fmt(log.outbound_price)}</td>
-                                  <td className="px-5 py-2.5 text-right text-gray-700">{fmt(log.inbound_price)}</td>
-                                  <td className="px-5 py-2.5 text-right font-medium text-gray-900">{fmt(log.total_price)}</td>
+                                  <td className="px-5 py-2.5 text-right text-gray-700 dark:text-gray-300">{fmt(log.outbound_price)}</td>
+                                  <td className="px-5 py-2.5 text-right text-gray-700 dark:text-gray-300">{fmt(log.inbound_price)}</td>
+                                  <td className="px-5 py-2.5 text-right font-medium text-gray-900 dark:text-white">{fmt(log.total_price)}</td>
                                   <td className="px-5 py-2.5 text-center">
                                     {log.price_goal_reached
-                                      ? <span className="text-green-600 font-semibold">✓</span>
-                                      : <span className="text-gray-300">—</span>}
+                                      ? <span className="text-green-600 font-semibold dark:text-green-400">✓</span>
+                                      : <span className="text-gray-300 dark:text-gray-600">—</span>}
                                   </td>
                                   <td className="px-5 py-2.5 text-center">
                                     {log.available_goal_reached
-                                      ? <span className="text-green-600 font-semibold">✓</span>
-                                      : <span className="text-gray-300">—</span>}
+                                      ? <span className="text-green-600 font-semibold dark:text-green-400">✓</span>
+                                      : <span className="text-gray-300 dark:text-gray-600">—</span>}
                                   </td>
-                                  <td className="px-5 py-2.5 text-red-500 text-xs max-w-[160px] truncate">
+                                  <td className="px-5 py-2.5 text-red-500 text-xs max-w-[160px] truncate dark:text-red-400">
                                     {log.error ?? ''}
                                   </td>
                                 </tr>

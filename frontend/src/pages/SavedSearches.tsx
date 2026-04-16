@@ -125,19 +125,19 @@ export default function SavedSearches() {
   }, [routes, sortBy, alertFilter])
 
   return (
-    <div className="min-h-screen bg-brand-50">
+    <div className="min-h-screen bg-brand-50 dark:bg-gray-950">
       <Navbar />
 
       <div className="max-w-5xl mx-auto px-6 py-10">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Saved searches</h1>
-          <p className="text-gray-500 text-sm">
+          <h1 className="text-2xl font-bold text-gray-900 mb-1 dark:text-white">Saved searches</h1>
+          <p className="text-gray-500 text-sm dark:text-gray-400">
             Routes you're tracking. Set a target price when saving a search to get alerted when fares drop below it.
           </p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-6">
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-6 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
             {error}
           </div>
         )}
@@ -145,7 +145,7 @@ export default function SavedSearches() {
         {loading && (
           <div className="space-y-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-100 h-24 animate-pulse" />
+              <div key={i} className="bg-white rounded-2xl border border-gray-100 h-24 animate-pulse dark:bg-gray-900 dark:border-gray-800" />
             ))}
           </div>
         )}
@@ -156,7 +156,7 @@ export default function SavedSearches() {
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value as SortKey)}
-              className="text-sm border border-gray-200 rounded-xl px-3 py-2 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition cursor-pointer"
+              className="text-sm border border-gray-200 rounded-xl px-3 py-2 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition cursor-pointer dark:border-gray-700 dark:text-gray-200 dark:bg-gray-800"
             >
               {SORT_OPTIONS.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -164,7 +164,7 @@ export default function SavedSearches() {
             </select>
 
             {/* Alert filter */}
-            <div className="flex rounded-xl border border-gray-200 bg-white overflow-hidden text-sm">
+            <div className="flex rounded-xl border border-gray-200 bg-white overflow-hidden text-sm dark:border-gray-700 dark:bg-gray-800">
               {([
                 { value: 'all',       label: 'All' },
                 { value: 'price',     label: 'Price alert' },
@@ -177,7 +177,7 @@ export default function SavedSearches() {
                   className={`px-3 py-2 transition ${
                     alertFilter === f.value
                       ? 'bg-brand-600 text-white font-medium'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
                   }`}
                 >
                   {f.label}
@@ -185,24 +185,24 @@ export default function SavedSearches() {
               ))}
             </div>
 
-            <span className="text-sm text-gray-400 ml-auto">
+            <span className="text-sm text-gray-400 ml-auto dark:text-gray-500">
               {visibleRoutes.length} of {routes.length}
             </span>
           </div>
         )}
 
         {!loading && routes.length === 0 && !error && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-            <p className="text-gray-400 text-sm">No saved searches yet.</p>
-            <p className="text-gray-400 text-sm mt-1">
-              Use the <span className="font-medium text-gray-600">Start route search</span> option on the Search page to save a route.
+          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center dark:bg-gray-900 dark:border-gray-800">
+            <p className="text-gray-400 text-sm dark:text-gray-500">No saved searches yet.</p>
+            <p className="text-gray-400 text-sm mt-1 dark:text-gray-500">
+              Use the <span className="font-medium text-gray-600 dark:text-gray-400">Start route search</span> option on the Search page to save a route.
             </p>
           </div>
         )}
 
         {!loading && visibleRoutes.length === 0 && routes.length > 0 && !error && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-            <p className="text-gray-400 text-sm">No searches match the current filter.</p>
+          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center dark:bg-gray-900 dark:border-gray-800">
+            <p className="text-gray-400 text-sm dark:text-gray-500">No searches match the current filter.</p>
           </div>
         )}
 
@@ -220,20 +220,20 @@ export default function SavedSearches() {
               return (
                 <div
                   key={route.id}
-                  className={`bg-white rounded-2xl border overflow-hidden ${goalReached ? 'border-green-200' : 'border-gray-100'}`}
+                  className={`bg-white rounded-2xl border overflow-hidden dark:bg-gray-900 ${goalReached ? 'border-green-200 dark:border-green-900' : 'border-gray-100 dark:border-gray-800'}`}
                 >
                   <div className="px-6 py-5 flex items-center justify-between gap-4">
                     {/* Route info — click to run search */}
                     <button
                       onClick={() => handleSearch(route)}
-                      className="flex-1 min-w-0 text-left rounded-xl px-3 py-2 -mx-3 -my-2 hover:bg-brand-50 transition group"
+                      className="flex-1 min-w-0 text-left rounded-xl px-3 py-2 -mx-3 -my-2 hover:bg-brand-50 transition group dark:hover:bg-brand-900/20"
                     >
-                      <div className={`flex items-center gap-2 font-semibold text-lg group-hover:text-brand-700 transition ${goalReached ? 'text-gray-500' : 'text-gray-900'}`}>
+                      <div className={`flex items-center gap-2 font-semibold text-lg group-hover:text-brand-700 transition dark:group-hover:text-brand-400 ${goalReached ? 'text-gray-500 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>
                         <span>{route.origin}</span>
-                        <ArrowRight className="w-4 h-4 text-gray-400 shrink-0 group-hover:text-brand-500 transition" />
+                        <ArrowRight className="w-4 h-4 text-gray-400 shrink-0 group-hover:text-brand-500 transition dark:text-gray-600" />
                         <span>{route.destination}</span>
                       </div>
-                      <div className="text-sm text-gray-500 mt-0.5">
+                      <div className="text-sm text-gray-500 mt-0.5 dark:text-gray-400">
                         {route.date_from} — {route.date_to}
                       </div>
                     </button>
@@ -241,19 +241,19 @@ export default function SavedSearches() {
                     {/* Badges */}
                     <div className="shrink-0 flex flex-col items-end gap-1.5 text-sm">
                       {route.alert_price !== null && (
-                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${goalReached ? 'text-gray-400 bg-gray-50' : 'text-brand-700 bg-brand-50'}`}>
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${goalReached ? 'text-gray-400 bg-gray-50 dark:text-gray-600 dark:bg-gray-800' : 'text-brand-700 bg-brand-50 dark:text-brand-400 dark:bg-brand-900/30'}`}>
                           <Bell className="w-3.5 h-3.5" />
                           Max €{route.alert_price}
                         </div>
                       )}
                       {route.notify_available && (
-                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${goalReached ? 'text-gray-400 bg-gray-50' : 'text-emerald-700 bg-emerald-50'}`}>
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${goalReached ? 'text-gray-400 bg-gray-50 dark:text-gray-600 dark:bg-gray-800' : 'text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/20'}`}>
                           <Radio className="w-3.5 h-3.5" />
                           Availability
                         </div>
                       )}
                       {route.alert_price === null && !route.notify_available && (
-                        <div className="flex items-center gap-1.5 text-gray-400 px-3 py-1.5">
+                        <div className="flex items-center gap-1.5 text-gray-400 px-3 py-1.5 dark:text-gray-600">
                           <BellOff className="w-3.5 h-3.5" />
                           No alert
                         </div>
@@ -264,7 +264,7 @@ export default function SavedSearches() {
                     <button
                       onClick={() => handleEdit(route)}
                       aria-label="Edit saved search"
-                      className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition"
+                      className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition dark:text-gray-600 dark:hover:text-brand-400 dark:hover:bg-brand-900/20"
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
@@ -274,7 +274,7 @@ export default function SavedSearches() {
                       onClick={() => handleDelete(route.id)}
                       disabled={deletingId === route.id}
                       aria-label="Delete saved search"
-                      className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition dark:text-gray-600 dark:hover:text-red-400 dark:hover:bg-red-900/20"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -282,7 +282,7 @@ export default function SavedSearches() {
 
                   {/* Goal reached banner */}
                   {goalReached && (
-                    <div className="flex items-center gap-2 bg-green-50 border-t border-green-100 px-6 py-2.5 text-sm text-green-700 font-medium">
+                    <div className="flex items-center gap-2 bg-green-50 border-t border-green-100 px-6 py-2.5 text-sm text-green-700 font-medium dark:bg-green-900/20 dark:border-green-900 dark:text-green-400">
                       <CheckCircle2 className="w-4 h-4 shrink-0" />
                       Goal reached · {goalDate}
                     </div>

@@ -81,12 +81,12 @@ export default function AirportInput({ label, placeholder, value, onChange }: Pr
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 dark:text-gray-400">
         {label}
       </label>
 
       <div className="relative">
-        <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none dark:text-gray-500" />
         <input
           ref={inputRef}
           type="text"
@@ -103,26 +103,28 @@ export default function AirportInput({ label, placeholder, value, onChange }: Pr
           }}
           maxLength={30}
           onKeyDown={handleKeyDown}
-          className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition"
+          className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-600"
         />
       </div>
 
       {open && results.length > 0 && (
-        <ul className="absolute z-50 mt-1.5 w-full bg-white border border-gray-100 rounded-xl shadow-lg overflow-hidden">
+        <ul className="absolute z-50 mt-1.5 w-full bg-white border border-gray-100 rounded-xl shadow-lg overflow-hidden dark:bg-gray-900 dark:border-gray-800">
           {results.map((airport, i) => (
             <li
               key={airport.iata}
               onMouseDown={() => handleSelect(airport)}
               onMouseEnter={() => setHighlighted(i)}
               className={`flex items-center justify-between px-4 py-3 cursor-pointer transition ${
-                i === highlighted ? 'bg-brand-50' : 'hover:bg-gray-50'
+                i === highlighted
+                  ? 'bg-brand-50 dark:bg-brand-900/30'
+                  : 'hover:bg-gray-50 dark:hover:bg-gray-800'
               }`}
             >
               <div>
-                <span className="font-medium text-gray-900">{airport.city}</span>
-                <span className="text-sm text-gray-400 ml-2">{airport.country}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{airport.city}</span>
+                <span className="text-sm text-gray-400 ml-2 dark:text-gray-500">{airport.country}</span>
               </div>
-              <span className="text-xs font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md">
+              <span className="text-xs font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md dark:text-brand-400 dark:bg-brand-900/30">
                 {airport.iata}
               </span>
             </li>
@@ -131,7 +133,7 @@ export default function AirportInput({ label, placeholder, value, onChange }: Pr
       )}
 
       {open && query.length >= 2 && results.length === 0 && (
-        <div className="absolute z-50 mt-1.5 w-full bg-white border border-gray-100 rounded-xl shadow-lg px-4 py-3 text-sm text-gray-400">
+        <div className="absolute z-50 mt-1.5 w-full bg-white border border-gray-100 rounded-xl shadow-lg px-4 py-3 text-sm text-gray-400 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-500">
           No airports found for "{query}"
         </div>
       )}
