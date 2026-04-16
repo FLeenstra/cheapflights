@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowRight, Plane } from 'lucide-react'
+import { AlertCircle, ArrowRight, ExternalLink, Plane } from 'lucide-react'
 
 export interface Flight {
   flight_number: string
@@ -30,6 +30,20 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-GB', {
     hour: '2-digit', minute: '2-digit',
   })
+}
+
+function buildDeeplink(flight: Flight) {
+  const date = flight.departure_time.slice(0, 10)
+  const params = new URLSearchParams({
+    adults: '1', teens: '0', children: '0', infants: '0',
+    dateOut: date,
+    isConnectedFlight: 'false',
+    isReturn: 'false',
+    originIata: flight.origin,
+    destinationIata: flight.destination,
+    toUs: 'AGREED',
+  })
+  return `https://www.ryanair.com/gb/en/trip/flights/select?${params}`
 }
 
 export default function FlightList({ label, from, to, date, flights, error }: Props) {
@@ -86,9 +100,12 @@ export default function FlightList({ label, from, to, date, flights, error }: Pr
       {!error && flights.length > 0 && (
         <div className="space-y-2.5">
           {flights.map((flight, i) => (
-            <div
+            <a
               key={i}
-              className={`bg-white rounded-2xl border px-5 py-4 flex items-center justify-between transition hover:shadow-sm dark:bg-gray-900 ${
+              href={buildDeeplink(flight)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`bg-white rounded-2xl border px-5 py-4 flex items-center justify-between transition hover:shadow-sm group dark:bg-gray-900 ${
                 i === 0
                   ? 'border-brand-200 ring-1 ring-brand-100 dark:border-brand-800 dark:ring-brand-900'
                   : 'border-gray-100 dark:border-gray-800'
@@ -114,13 +131,16 @@ export default function FlightList({ label, from, to, date, flights, error }: Pr
                 </div>
               </div>
 
-              <div className="text-right shrink-0">
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  {flight.currency} {flight.price.toFixed(2)}
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5 dark:text-gray-600">{flight.flight_number}</p>
+              <div className="text-right shrink-0 flex items-center gap-3">
+                <div>
+                  <p className="text-xl font-bold text-gray-900 dark:text-white">
+                    {flight.currency} {flight.price.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5 dark:text-gray-600">{flight.flight_number}</p>
+                </div>
+                <ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-brand-500 transition dark:text-gray-600 dark:group-hover:text-brand-400 shrink-0" />
               </div>
-            </div>
+            </a>
           ))}
         </div>
       )}

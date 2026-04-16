@@ -73,4 +73,14 @@ describe('FlightList', () => {
     expect(logos).toHaveLength(2)
     logos.forEach(logo => expect(logo).toHaveAttribute('src', '/ryanair.png'))
   })
+
+  it('links each flight card to the Ryanair booking page', () => {
+    render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} />)
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', expect.stringContaining('ryanair.com'))
+    expect(link).toHaveAttribute('href', expect.stringContaining('DUB'))
+    expect(link).toHaveAttribute('href', expect.stringContaining('BCN'))
+    expect(link).toHaveAttribute('href', expect.stringContaining('2025-06-01'))
+    expect(link).toHaveAttribute('target', '_blank')
+  })
 })
