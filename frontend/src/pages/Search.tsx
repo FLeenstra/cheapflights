@@ -39,6 +39,8 @@ export default function Search() {
   const [dateTo, setDateTo] = useState<Date | undefined>()
   const [results, setResults] = useState<SearchResults | null>(null)
   const [searchedRoute, setSearchedRoute] = useState<{ origin: Airport; destination: Airport; dateFrom: string; dateTo: string } | null>(null)
+  const [selectedOutbound, setSelectedOutbound] = useState<Flight | null>(null)
+  const [selectedInbound, setSelectedInbound] = useState<Flight | null>(null)
   const [loading, setLoading] = useState(false)
   const [formError, setFormError] = useState('')
 
@@ -99,6 +101,8 @@ export default function Search() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail ?? 'Search failed')
       setResults(data)
+      setSelectedOutbound(null)
+      setSelectedInbound(null)
       setDateFrom(from)
       setDateTo(to)
       setSearchedRoute({ origin: org, destination: dest, dateFrom: toISO(from), dateTo: toISO(to) })
@@ -307,9 +311,10 @@ export default function Search() {
         {/* Cheapest total summary */}
         {!loading && results && (
           <CheapestTotal
-            outboundPrice={results.outbound.flights[0]?.price ?? null}
-            inboundPrice={results.inbound.flights[0]?.price ?? null}
+            outboundPrice={(selectedOutbound ?? results.outbound.flights[0])?.price ?? null}
+            inboundPrice={(selectedInbound ?? results.inbound.flights[0])?.price ?? null}
             currency={results.currency}
+            isCustomSelection={!!(selectedOutbound || selectedInbound)}
           />
         )}
 
@@ -325,6 +330,8 @@ export default function Search() {
               inboundDate={searchedRoute.dateTo}
               flights={results.outbound.flights}
               error={results.outbound.error}
+              selectedFlight={selectedOutbound}
+              onSelect={setSelectedOutbound}
             />
 
             <FlightList
@@ -336,6 +343,8 @@ export default function Search() {
               inboundDate={searchedRoute.dateTo}
               flights={results.inbound.flights}
               error={results.inbound.error}
+              selectedFlight={selectedInbound}
+              onSelect={setSelectedInbound}
             />
 
             <PriceSuggestions

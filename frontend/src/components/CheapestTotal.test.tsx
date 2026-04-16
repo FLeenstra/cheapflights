@@ -44,4 +44,15 @@ describe('CheapestTotal', () => {
     render(<CheapestTotal outboundPrice={10} inboundPrice={20} currency="EUR" />)
     expect(screen.getByText('EUR 30.00')).toBeInTheDocument()
   })
+
+  it('shows "Cheapest total" label by default', () => {
+    render(<CheapestTotal outboundPrice={10} inboundPrice={20} currency="EUR" />)
+    expect(screen.getByText(/cheapest total/i)).toBeInTheDocument()
+  })
+
+  it('shows "Selected total" label when isCustomSelection is true', () => {
+    render(<CheapestTotal outboundPrice={10} inboundPrice={20} currency="EUR" isCustomSelection />)
+    expect(screen.getByText(/selected total/i)).toBeInTheDocument()
+    expect(screen.queryByText(/cheapest total/i)).not.toBeInTheDocument()
+  })
 })

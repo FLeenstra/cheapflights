@@ -2,9 +2,10 @@ interface Props {
   outboundPrice: number | null
   inboundPrice: number | null
   currency: string
+  isCustomSelection?: boolean
 }
 
-export default function CheapestTotal({ outboundPrice, inboundPrice, currency }: Props) {
+export default function CheapestTotal({ outboundPrice, inboundPrice, currency, isCustomSelection }: Props) {
   if (outboundPrice === null && inboundPrice === null) return null
   const total = (outboundPrice ?? 0) + (inboundPrice ?? 0)
 
@@ -19,7 +20,9 @@ export default function CheapestTotal({ outboundPrice, inboundPrice, currency }:
         )}
       </div>
       <div className="text-right">
-        <p className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-0.5">Cheapest total</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-0.5">
+          {isCustomSelection ? 'Selected total' : 'Cheapest total'}
+        </p>
         <p className="text-3xl font-bold text-brand-600 dark:text-brand-400">{currency} {total.toFixed(2)}</p>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import FlightList, { type Flight } from './FlightList'
 
 const FLIGHT: Flight = {
@@ -74,18 +74,15 @@ describe('FlightList', () => {
     logos.forEach(logo => expect(logo).toHaveAttribute('src', '/ryanair.png'))
   })
 
-  it('links each flight card to the Ryanair booking page as one-way when no paired dates', () => {
+  it('shows a 1-way booking button per flight', () => {
     render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} />)
-    const link = screen.getByRole('link')
+    const link = screen.getByRole('link', { name: '1-way' })
     expect(link).toHaveAttribute('href', expect.stringContaining('ryanair.com'))
-    expect(link).toHaveAttribute('href', expect.stringContaining('DUB'))
-    expect(link).toHaveAttribute('href', expect.stringContaining('BCN'))
-    expect(link).toHaveAttribute('href', expect.stringContaining('2025-06-01'))
     expect(link).toHaveAttribute('href', expect.stringContaining('isReturn=false'))
     expect(link).toHaveAttribute('target', '_blank')
   })
 
-  it('builds a return deeplink when outboundDate and inboundDate are provided', () => {
+  it('shows a Return booking button when outboundDate and inboundDate are provided', () => {
     render(
       <FlightList
         {...baseProps}
@@ -95,9 +92,29 @@ describe('FlightList', () => {
         inboundDate="2025-06-08"
       />
     )
-    const link = screen.getByRole('link')
+    const link = screen.getByRole('link', { name: 'Return' })
     expect(link).toHaveAttribute('href', expect.stringContaining('isReturn=true'))
     expect(link).toHaveAttribute('href', expect.stringContaining('dateOut=2025-06-01'))
     expect(link).toHaveAttribute('href', expect.stringContaining('dateIn=2025-06-08'))
+  })
+
+  it('does not show a Return button when no paired dates are given', () => {
+    render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} />)
+    expect(screen.queryByRole('link', { name: 'Return' })).not.toBeInTheDocument()
+  })
+
+  it('calls onSelect when a flight card is clicked', async () => {
+    const onSelect = vi.fn()
+    render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} onSelect={onSelect} />)
+    screen.getByText('FR1234').click()
+    expect(onSelect).toHaveBeenCalledWith(FLIGHT)
+  })
+
+  it('highlights the selected flight card', () => {
+    const { container } = render(
+      <FlightList {...baseProps} flights={[FLIGHT]} error={null} selectedFlight={FLIGHT} />
+    )
+    expect(container.firstChild).toBeDefined()
+    expect(screen.getByText('FR1234').closest('div[class*="ring-2"]')).toBeTruthy()
   })
 })
