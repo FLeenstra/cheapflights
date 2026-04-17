@@ -255,12 +255,12 @@ Both endpoints require authentication.
 {
   "default_origin": "DUB",
   "travel_adults": 2,
-  "travel_children": 1,
+  "travel_children_birthdates": ["2018-05-01"],
   "theme_preference": "dark"
 }
 ```
 
-All fields optional (omitted fields reset to defaults). `default_origin` must be a valid 3-letter IATA code or `null`. `travel_adults` 1–9, `travel_children` 0–9, total ≤ 9. `theme_preference` must be `"light"`, `"dark"`, or `"system"`.
+All fields optional (omitted fields reset to defaults). `default_origin` must be a valid 3-letter IATA code or `null`. `travel_adults` 1–9 (default 1). `travel_children_birthdates` is a list of `YYYY-MM-DD` strings (max 8, no future dates); ages are derived from birthdates and used to determine infant/child/adult category. Total adults + children ≤ 9. `theme_preference` must be `"light"`, `"dark"`, or `"system"`.
 
 ### Admin
 
@@ -292,7 +292,7 @@ docker compose run --rm test pytest tests/ -v --cov=. --cov-report=term-missing
 
 The test suite uses an in-memory SQLite database for full isolation. All Ryanair API calls are mocked — no network access required.
 
-Current coverage: **99%** across all source files (183 tests; `routers/routes.py` and `models.py` at 100%).
+Current coverage: **99%** across all source files (191 tests; `routers/routes.py`, `models.py`, and `routers/profile.py` at 100%).
 
 ### Frontend (vitest)
 

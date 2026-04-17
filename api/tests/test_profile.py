@@ -1,5 +1,6 @@
 import pytest
 from datetime import date, timedelta
+from unittest.mock import MagicMock
 
 
 def _register_and_token(client, email="profile@test.com", password="Secret1!"):
@@ -9,10 +10,6 @@ def _register_and_token(client, email="profile@test.com", password="Secret1!"):
 
 def auth(token):
     return {"Authorization": f"Bearer {token}"}
-
-
-def _today():
-    return date.today().isoformat()
 
 
 def _years_ago(n):
@@ -172,18 +169,41 @@ class TestUpdateProfile:
         assert res.status_code == 401
 
     def test_corrupt_birthdates_in_db_returns_empty_list(self, client):
-        """Covers the _parse_birthdates except branch when DB contains invalid JSON."""
-        from unittest.mock import patch, MagicMock
-        import uuid
-        token = _register_and_token(client, "corrupt@test.com")
+        pass  # covered by TestParseBirthdates below
 
-        bad_user = MagicMock()
-        bad_user.travel_children_birthdates = "not-valid-json"
-        bad_user.default_origin = None
-        bad_user.travel_adults = 1
-        bad_user.theme_preference = "system"
 
-        with patch("routers.profile.get_current_user", return_value=bad_user):
-            res = client.get("/profile/", headers=auth(token))
-        assert res.status_code == 200
-        assert res.json()["travel_children_birthdates"] == []
+# ---------------------------------------------------------------------------
+# _parse_birthdates — unit tests for the internal helper
+# ---------------------------------------------------------------------------
+
+class TestParseBirthdates:
+
+    def test_valid_json_list(self):
+        from routers.profile import _parse_birthdates
+        user = MagicMock()
+        user.travel_children_birthdates = '["2018-05-01", "2020-03-15"]'
+        assert _parse_birthdates(user) == ["2018-05-01", "2020-03-15"]
+
+    def test_empty_json_list(self):
+        from routers.profile import _parse_birthdates
+        user = MagicMock()
+        user.travel_children_birthdates = "[]"
+        assert _parse_birthdates(user) == []
+
+    def test_none_returns_empty_list(self):
+        from routers.profile import _parse_birthdates
+        user = MagicMock()
+        user.travel_children_birthdates = None
+        assert _parse_birthdates(user) == []
+
+    def test_invalid_json_string_returns_empty_list(self):
+        from routers.profile import _parse_birthdates
+        user = MagicMock()
+        user.travel_children_birthdates = "not-valid-json{{{"
+        assert _parse_birthdates(user) == []
+
+    def test_non_string_truthy_value_returns_empty_list(self):
+        from routers.profile import _parse_birthdates
+        user = MagicMock()
+        user.travel_children_birthdates = 42  # truthy non-string → json.loads raises TypeError
+        assert _parse_birthdates(user) == []
