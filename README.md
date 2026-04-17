@@ -157,13 +157,15 @@ All routes endpoints require authentication. The browser sends the httpOnly cook
   "destination": "BCN",
   "date_from": "2025-08-01",
   "date_to": "2025-08-08",
-  "passengers": 2,
+  "passengers": 3,
+  "adults_count": 2,
+  "children_ages": [7],
   "alert_price": 98,
   "notify_available": false
 }
 ```
 
-`passengers` is optional (default `1`, max `9`). All price totals and alert thresholds are calculated for the full group.
+`passengers` is optional (default `1`, max `9`) — total group size. For proper per-category booking links and readable alert emails, also send `adults_count` (int) and `children_ages` (list of ages 0–15). Old clients that only send `passengers` continue to work; `adults_count` is derived automatically. All price totals and alert thresholds are calculated for the full group.
 
 `alert_price` is optional. When provided it must be a whole number (integer, no decimals) and represents the **maximum combined group total** (outbound + inbound × number of passengers).
 
