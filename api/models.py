@@ -46,6 +46,8 @@ class Route(Base):
     destination: Mapped[str] = mapped_column(String(3), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     passengers: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    adults_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    children_ages: Mapped[str] = mapped_column(String, nullable=False, default="[]", server_default="'[]'")
     alert_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     notify_available: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     date_from: Mapped[date] = mapped_column(Date, nullable=False)

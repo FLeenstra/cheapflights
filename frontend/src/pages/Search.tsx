@@ -95,7 +95,7 @@ export default function Search() {
 
   // Pre-fill from navigation state when arriving from the edit button
   useEffect(() => {
-    const edit = (location.state as { editRoute?: { id: string; origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; alertPrice: string; notifyAvailable: boolean; passengers: number } } | null)?.editRoute
+    const edit = (location.state as { editRoute?: { id: string; origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; alertPrice: string; notifyAvailable: boolean; passengers: number; adultsCount?: number; childrenAges?: number[] } } | null)?.editRoute
     if (!edit) return
     setEditRouteId(edit.id)
     setOrigin(edit.origin)
@@ -104,8 +104,8 @@ export default function Search() {
     setDateTo(edit.dateTo)
     setAlertPrice(edit.alertPrice)
     setNotifyAvailable(edit.notifyAvailable)
-    setAdults(edit.passengers ?? 1)
-    setChildrenAges([])
+    setAdults(edit.adultsCount ?? edit.passengers ?? 1)
+    setChildrenAges(edit.childrenAges ?? [])
     setTrackRoute(true)
   }, [location.state])
 
@@ -194,6 +194,8 @@ export default function Search() {
           date_from: toISO(dateFrom),
           date_to: toISO(dateTo),
           passengers,
+          adults_count: adults,
+          children_ages: childrenAges,
           alert_price: alertPrice ? parseInt(alertPrice, 10) : null,
           notify_available: notifyAvailable,
         }),

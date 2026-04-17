@@ -63,6 +63,9 @@ def startup():
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS travel_children INTEGER NOT NULL DEFAULT 0"))
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS travel_children_birthdates TEXT NOT NULL DEFAULT '[]'"))
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS theme_preference VARCHAR(10) NOT NULL DEFAULT 'system'"))
+        conn.execute(text("ALTER TABLE routes ADD COLUMN IF NOT EXISTS adults_count INTEGER"))
+        conn.execute(text("ALTER TABLE routes ADD COLUMN IF NOT EXISTS children_ages TEXT NOT NULL DEFAULT '[]'"))
+        conn.execute(text("UPDATE routes SET adults_count = passengers WHERE adults_count IS NULL"))
     db = SessionLocal()
     try:
         if not db.query(User).filter(User.email == ADMIN_EMAIL).first():

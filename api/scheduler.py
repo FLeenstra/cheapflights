@@ -3,6 +3,7 @@ Hourly background job that checks every active saved route with an alert
 configured (price alert, availability alert, or both) and writes a
 RouteCheckLog record for each check.
 """
+import json
 import logging
 import os
 import smtplib
@@ -20,10 +21,39 @@ from routers.flights import _cheapest_for_date, _search_date
 logger = logging.getLogger(__name__)
 
 
-def _ryanair_url(origin: str, destination: str, date_out: str, date_in: str | None = None) -> str:
+def _pax_breakdown(adults: int, children_ages: list[int]) -> dict[str, str]:
+    """Split children ages into Ryanair categories: teens (12–15), children (2–11), infants (0–1)."""
+    return {
+        "adults": str(adults),
+        "teens": str(sum(1 for a in children_ages if 12 <= a <= 15)),
+        "children": str(sum(1 for a in children_ages if 2 <= a <= 11)),
+        "infants": str(sum(1 for a in children_ages if a <= 1)),
+    }
+
+
+def _pax_label(adults: int, children_ages: list[int]) -> str:
+    """Human-readable passenger summary, e.g. '2 adults, 1 child (age 5)'."""
+    parts = [f"{adults} adult{'s' if adults != 1 else ''}"]
+    n = len(children_ages)
+    if n == 1:
+        age = children_ages[0]
+        kind = "infant" if age < 2 else "child"
+        parts.append(f"1 {kind} (age {age})")
+    elif n > 1:
+        ages_str = ", ".join(str(a) for a in children_ages)
+        parts.append(f"{n} children (ages {ages_str})")
+    return ", ".join(parts)
+
+
+def _ryanair_url(
+    origin: str, destination: str, date_out: str, date_in: str | None = None,
+    adults: int = 1, children_ages: list[int] | None = None,
+) -> str:
     from urllib.parse import urlencode
+    pax = _pax_breakdown(adults, children_ages or [])
     params: dict = {
-        "adults": "1", "teens": "0", "children": "0", "infants": "0",
+        "adults": pax["adults"], "teens": pax["teens"],
+        "children": pax["children"], "infants": pax["infants"],
         "dateOut": str(date_out),
         "isConnectedFlight": "false",
         "isReturn": "true" if date_in else "false",
@@ -39,6 +69,7 @@ def _ryanair_url(origin: str, destination: str, date_out: str, date_in: str | No
 def _flight_table_html(
     flights: list[dict], label: str, origin: str, destination: str, d,
     outbound_date: str | None = None, inbound_date: str | None = None,
+    adults: int = 1, children_ages: list[int] | None = None,
 ) -> str:
     rows = ""
     for i, f in enumerate(flights):
@@ -50,7 +81,7 @@ def _flight_table_html(
             if i == 0 else '<td style="padding:10px 12px;"></td>'
         )
         bg = "#f8fafc" if i % 2 == 0 else "#ffffff"
-        single_url = _ryanair_url(f["origin"], f["destination"], flight_date)
+        single_url = _ryanair_url(f["origin"], f["destination"], flight_date, adults=adults, children_ages=children_ages)
         single_btn = (
             f'<a href="{single_url}" style="display:inline-block;padding:3px 9px;font-size:11px;'
             f'font-weight:600;color:#6b7280;border:1px solid #d1d5db;border-radius:6px;'
@@ -60,7 +91,8 @@ def _flight_table_html(
         if outbound_date and inbound_date:
             return_url = _ryanair_url(origin if label == "Outbound" else destination,
                                       destination if label == "Outbound" else origin,
-                                      outbound_date, inbound_date)
+                                      outbound_date, inbound_date,
+                                      adults=adults, children_ages=children_ages)
             return_btn = (
                 f'<a href="{return_url}" style="display:inline-block;padding:3px 9px;font-size:11px;'
                 f'font-weight:600;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;'
@@ -100,19 +132,21 @@ def _flight_table_html(
 
 
 def _flight_table_text(flights: list[dict], label: str, origin: str, destination: str, d,
-                       outbound_date: str | None = None, inbound_date: str | None = None) -> str:
+                       outbound_date: str | None = None, inbound_date: str | None = None,
+                       adults: int = 1, children_ages: list[int] | None = None) -> str:
     lines = [f"{label} — {origin} → {destination} — {d}"]
     for i, f in enumerate(flights):
         time = f["departure_time"][11:16] if len(f["departure_time"]) >= 16 else f["departure_time"]
         flight_date = f["departure_time"][:10] if len(f["departure_time"]) >= 10 else str(d)
         prefix = "★ " if i == 0 else "  "
-        single_url = _ryanair_url(f["origin"], f["destination"], flight_date)
+        single_url = _ryanair_url(f["origin"], f["destination"], flight_date, adults=adults, children_ages=children_ages)
         lines.append(f"  {prefix}{f['flight_number']}  {time}  €{f['price']:.2f}")
         lines.append(f"    Single: {single_url}")
         if outbound_date and inbound_date:
             return_url = _ryanair_url(origin if label == "Outbound" else destination,
                                       destination if label == "Outbound" else origin,
-                                      outbound_date, inbound_date)
+                                      outbound_date, inbound_date,
+                                      adults=adults, children_ages=children_ages)
             lines.append(f"    Return: {return_url}")
     return "\n".join(lines) + "\n"
 
@@ -123,7 +157,8 @@ def _send_alert_email(
     price_goal: bool,
     avail_goal: bool,
     total: float | None,
-    passengers: int = 1,
+    adults_count: int = 1,
+    children_ages: list[int] | None = None,
     outbound_flights: list[dict] | None = None,
     inbound_flights: list[dict] | None = None,
 ) -> None:
@@ -155,11 +190,15 @@ def _send_alert_email(
     else:
         subject = f"Flights available: {origin}\u2192{destination} on {date_from}"
 
+    # Passenger breakdown
+    _children = children_ages or []
+    passengers = adults_count + len(_children)
+    pax_label = _pax_label(adults_count, _children)
+
     # Build the "what triggered" section for HTML
     goal_lines_html = ""
     goal_lines_text = ""
     if price_goal and total is not None and alert_price is not None:
-        pax_note = f" for {passengers} passenger{'s' if passengers > 1 else ''}" if passengers > 1 else ""
         per_person = total / passengers if passengers > 1 else None
         per_person_html = (
             f' <span style="color:#6b7280;font-size:13px;">'
@@ -168,11 +207,11 @@ def _send_alert_email(
         goal_lines_html += (
             f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
             f'<strong>Price goal reached</strong> &mdash; '
-            f'group total{pax_note}: <strong>&euro;{total:.2f}</strong>{per_person_html} '
+            f'group total ({pax_label}): <strong>&euro;{total:.2f}</strong>{per_person_html} '
             f'(your target: &euro;{float(alert_price):.2f})</p>'
         )
         pp_text = f" (€{per_person:.2f} per person)" if per_person else ""
-        goal_lines_text += f"Price goal reached — group total{pax_note}: €{total:.2f}{pp_text} (your target: €{float(alert_price):.2f})\n"
+        goal_lines_text += f"Price goal reached — group total ({pax_label}): €{total:.2f}{pp_text} (your target: €{float(alert_price):.2f})\n"
     if avail_goal:
         goal_lines_html += (
             f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
@@ -186,17 +225,16 @@ def _send_alert_email(
     date_from_str = str(date_from)
     date_to_str = str(date_to)
     if outbound_flights:
-        flights_html += _flight_table_html(outbound_flights, "Outbound", origin, destination, date_from, date_from_str, date_to_str)
-        flights_text += _flight_table_text(outbound_flights, "Outbound", origin, destination, date_from, date_from_str, date_to_str) + "\n"
+        flights_html += _flight_table_html(outbound_flights, "Outbound", origin, destination, date_from, date_from_str, date_to_str, adults=adults_count, children_ages=_children)
+        flights_text += _flight_table_text(outbound_flights, "Outbound", origin, destination, date_from, date_from_str, date_to_str, adults=adults_count, children_ages=_children) + "\n"
     if inbound_flights:
-        flights_html += _flight_table_html(inbound_flights, "Return", destination, origin, date_to, date_from_str, date_to_str)
-        flights_text += _flight_table_text(inbound_flights, "Return", destination, origin, date_to, date_from_str, date_to_str) + "\n"
+        flights_html += _flight_table_html(inbound_flights, "Return", destination, origin, date_to, date_from_str, date_to_str, adults=adults_count, children_ages=_children)
+        flights_text += _flight_table_text(inbound_flights, "Return", destination, origin, date_to, date_from_str, date_to_str, adults=adults_count, children_ages=_children) + "\n"
     if outbound_flights and inbound_flights:
         cheapest_out = outbound_flights[0]["price"]
         cheapest_in = inbound_flights[0]["price"]
         cheapest_per_person = cheapest_out + cheapest_in
         cheapest_group = cheapest_per_person * passengers
-        pax_label = f"{passengers} passenger{'s' if passengers > 1 else ''}"
         pp_note_html = (
             f' <span style="color:#6b7280;font-size:13px;">(&euro;{cheapest_per_person:.2f} per person)</span>'
         ) if passengers > 1 else ""
@@ -545,7 +583,9 @@ def _check_route(db: Session, route: Route) -> None:
             total = out_price + in_price
 
         flights_found = out_price is not None
-        passengers = route.passengers or 1
+        adults_count = route.adults_count if route.adults_count is not None else (route.passengers or 1)
+        children_ages = json.loads(route.children_ages or "[]")
+        passengers = adults_count + len(children_ages)
         group_total = total * passengers if total is not None else None
 
         price_goal_reached = bool(
@@ -581,7 +621,8 @@ def _check_route(db: Session, route: Route) -> None:
             _send_alert_email(
                 user_email, route, price_goal_reached, available_goal_reached,
                 group_total,
-                passengers=passengers,
+                adults_count=adults_count,
+                children_ages=children_ages,
                 outbound_flights=out_flights or None,
                 inbound_flights=in_flights or None,
             )

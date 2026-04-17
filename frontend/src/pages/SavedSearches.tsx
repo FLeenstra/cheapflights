@@ -11,6 +11,8 @@ interface SavedRoute {
   date_from: string
   date_to: string
   passengers: number
+  adults_count: number | null
+  children_ages: number[]
   alert_price: number | null
   notify_available: boolean
   is_active: boolean
@@ -84,6 +86,8 @@ export default function SavedSearches() {
           dateFrom: new Date(route.date_from + 'T12:00:00'),
           dateTo: new Date(route.date_to + 'T12:00:00'),
           passengers: route.passengers,
+          adultsCount: route.adults_count ?? route.passengers,
+          childrenAges: route.children_ages ?? [],
           alertPrice: route.alert_price?.toString() ?? '',
           notifyAvailable: route.notify_available,
         },

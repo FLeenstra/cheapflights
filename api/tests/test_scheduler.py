@@ -520,7 +520,7 @@ def _get_alert_email_html(outbound_flights=None, inbound_flights=None):
         with patch("scheduler.smtplib.SMTP", return_value=mock_smtp):
             _send_alert_email(
                 "user@test.com", mock_route, True, False, 65.0,
-                passengers=1,
+                adults_count=1,
                 outbound_flights=outbound_flights,
                 inbound_flights=inbound_flights,
             )
@@ -548,6 +548,111 @@ def test_send_alert_email_includes_return_booking_links():
     assert "isReturn=true" in html
     assert "dateOut=2026-06-01" in html
     assert "dateIn=2026-06-08" in html
+
+
+# ---------------------------------------------------------------------------
+# _pax_label — unit tests
+# ---------------------------------------------------------------------------
+
+def test_pax_label_adults_only():
+    from scheduler import _pax_label
+    assert _pax_label(1, []) == "1 adult"
+    assert _pax_label(2, []) == "2 adults"
+
+
+def test_pax_label_one_child():
+    from scheduler import _pax_label
+    assert _pax_label(2, [7]) == "2 adults, 1 child (age 7)"
+
+
+def test_pax_label_one_infant():
+    from scheduler import _pax_label
+    assert _pax_label(1, [1]) == "1 adult, 1 infant (age 1)"
+
+
+def test_pax_label_multiple_children():
+    from scheduler import _pax_label
+    assert _pax_label(2, [3, 7]) == "2 adults, 2 children (ages 3, 7)"
+
+
+# ---------------------------------------------------------------------------
+# _pax_breakdown — URL params
+# ---------------------------------------------------------------------------
+
+def test_pax_breakdown_adults_only():
+    from scheduler import _pax_breakdown
+    result = _pax_breakdown(2, [])
+    assert result == {"adults": "2", "teens": "0", "children": "0", "infants": "0"}
+
+
+def test_pax_breakdown_with_infant_and_child():
+    from scheduler import _pax_breakdown
+    result = _pax_breakdown(2, [1, 7])
+    assert result["infants"] == "1"
+    assert result["children"] == "1"
+    assert result["teens"] == "0"
+
+
+def test_pax_breakdown_with_teen():
+    from scheduler import _pax_breakdown
+    result = _pax_breakdown(1, [13])
+    assert result["teens"] == "1"
+    assert result["children"] == "0"
+    assert result["infants"] == "0"
+
+
+# ---------------------------------------------------------------------------
+# _send_alert_email — passenger breakdown in email body
+# ---------------------------------------------------------------------------
+
+def _get_alert_email_html_with_children(adults_count, children_ages):
+    from scheduler import _send_alert_email
+    mock_route = MagicMock()
+    mock_route.origin = "DUB"
+    mock_route.destination = "BCN"
+    mock_route.date_from = "2026-06-01"
+    mock_route.date_to = "2026-06-08"
+    mock_route.alert_price = 200
+
+    sent_messages = []
+    env = {"SMTP_HOST": "mailpit", "SMTP_PORT": "1025", "SMTP_USER": "", "SMTP_FROM": "x@x.com"}
+    mock_smtp = MagicMock()
+    mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
+    mock_smtp.__exit__ = MagicMock(return_value=False)
+    mock_smtp.send_message.side_effect = lambda m: sent_messages.append(m)
+
+    total = 120.0 * (adults_count + len(children_ages))
+    with patch.dict("os.environ", env):
+        with patch("scheduler.smtplib.SMTP", return_value=mock_smtp):
+            _send_alert_email(
+                "user@test.com", mock_route, True, False, total,
+                adults_count=adults_count,
+                children_ages=children_ages,
+            )
+    return sent_messages[0].get_body(preferencelist=("html",)).get_content()
+
+
+def test_send_alert_email_shows_adult_and_child_label():
+    html = _get_alert_email_html_with_children(2, [7])
+    assert "2 adults" in html
+    assert "1 child" in html
+    assert "age 7" in html
+
+
+def test_send_alert_email_shows_infant_label():
+    html = _get_alert_email_html_with_children(1, [1])
+    assert "1 infant" in html
+
+
+def test_send_alert_email_booking_url_includes_children():
+    html = _get_alert_email_html_with_children(2, [7, 3])
+    # 2 children ages 3 and 7 → children=2 in URL
+    assert "children=2" in html
+
+
+def test_send_alert_email_booking_url_includes_infants():
+    html = _get_alert_email_html_with_children(1, [0])
+    assert "infants=1" in html
 
 
 # ---------------------------------------------------------------------------

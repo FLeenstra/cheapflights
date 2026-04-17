@@ -1,3 +1,4 @@
+import json
 import re
 import uuid as uuid_module
 from datetime import date, datetime
@@ -5,7 +6,7 @@ from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -25,6 +26,8 @@ class SaveRouteRequest(BaseModel):
     date_from: date
     date_to: date
     passengers: int = 1
+    adults_count: int | None = None
+    children_ages: list[int] = []
     alert_price: int | None = None      # whole euros, group total; None means no price alert
     notify_available: bool = False      # notify when any flight becomes available
 
@@ -43,12 +46,26 @@ class SaveRouteRequest(BaseModel):
             raise ValueError("passengers must be between 1 and 9")
         return v
 
+    @field_validator("children_ages")
+    @classmethod
+    def validate_children_ages(cls, v: list[int]) -> list[int]:
+        for age in v:
+            if age < 0 or age > 15:
+                raise ValueError("child age must be 0–15")
+        return v
+
     @field_validator("alert_price")
     @classmethod
     def validate_alert_price(cls, v: int | None) -> int | None:
         if v is not None and v < 1:
             raise ValueError("alert_price must be a positive integer")
         return v
+
+    @model_validator(mode="after")
+    def derive_adults_count(self) -> "SaveRouteRequest":
+        if self.adults_count is None:
+            self.adults_count = max(1, self.passengers - len(self.children_ages))
+        return self
 
 
 class RouteOut(BaseModel):
@@ -58,6 +75,8 @@ class RouteOut(BaseModel):
     date_from: date
     date_to: date
     passengers: int
+    adults_count: int | None = None
+    children_ages: list[int] = []
     alert_price: int | None
     notify_available: bool
     is_active: bool
@@ -100,6 +119,8 @@ def list_routes(
             date_from=r.date_from,
             date_to=r.date_to,
             passengers=r.passengers,
+            adults_count=r.adults_count,
+            children_ages=json.loads(r.children_ages or "[]"),
             alert_price=int(r.alert_price) if r.alert_price is not None else None,
             notify_available=r.notify_available,
             is_active=r.is_active,
@@ -139,6 +160,8 @@ def save_route(
         date_from=body.date_from,
         date_to=body.date_to,
         passengers=body.passengers,
+        adults_count=body.adults_count,
+        children_ages=json.dumps(body.children_ages),
         alert_price=Decimal(body.alert_price) if body.alert_price is not None else None,
         notify_available=body.notify_available,
     )
@@ -189,6 +212,8 @@ def update_route(
     route.date_from = body.date_from
     route.date_to = body.date_to
     route.passengers = body.passengers
+    route.adults_count = body.adults_count
+    route.children_ages = json.dumps(body.children_ages)
     route.alert_price = Decimal(body.alert_price) if body.alert_price is not None else None
     route.notify_available = body.notify_available
     db.commit()
