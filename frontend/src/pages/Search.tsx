@@ -7,7 +7,7 @@ import CheapestTotal from '../components/CheapestTotal'
 import FlightList, { type Flight } from '../components/FlightList'
 import Navbar from '../components/Navbar'
 import PriceSuggestions, { type Suggestion } from '../components/PriceSuggestions'
-import type { Airport } from '../data/airports'
+import { airports, type Airport } from '../data/airports'
 
 interface SearchResults {
   outbound: { flights: Flight[]; error: string | null }
@@ -55,6 +55,26 @@ export default function Search() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
+
+  // Pre-fill from profile defaults on a fresh visit (no navigation state)
+  useEffect(() => {
+    const hasNavState = !!(location.state as { runSearch?: unknown; editRoute?: unknown } | null)?.runSearch ||
+                        !!(location.state as { runSearch?: unknown; editRoute?: unknown } | null)?.editRoute
+    if (hasNavState) return
+    fetch('/api/profile/', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return
+        if (data.default_origin) {
+          const airport = airports.find((a: Airport) => a.iata === data.default_origin)
+          if (airport) setOrigin(airport)
+        }
+        const total = Math.min(9, Math.max(1, (data.travel_adults ?? 1) + (data.travel_children ?? 0)))
+        if (total > 1) setPassengers(total)
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Pre-fill from navigation state when arriving from the edit button
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { Bookmark, LogOut, Moon, Plane, Search, ShieldCheck, Sun } from 'lucide-react'
+import { Bookmark, LogOut, Monitor, Moon, Plane, Search, ShieldCheck, Sun, UserCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useDarkMode } from '../lib/useDarkMode'
@@ -7,7 +7,7 @@ export default function Navbar() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [isAdmin, setIsAdmin] = useState(false)
-  const { theme, toggle } = useDarkMode()
+  const { preference, setPreference } = useDarkMode()
 
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'include' })
@@ -20,6 +20,14 @@ export default function Navbar() {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
     navigate('/login')
   }
+
+  function cycleTheme() {
+    const next = preference === 'light' ? 'dark' : preference === 'dark' ? 'system' : 'light'
+    setPreference(next)
+  }
+
+  const ThemeIcon = preference === 'dark' ? Moon : preference === 'light' ? Sun : Monitor
+  const themeLabel = preference === 'dark' ? 'Dark mode' : preference === 'light' ? 'Light mode' : 'System theme'
 
   const navItem = (to: string, label: string, Icon: React.ElementType) => {
     const active = pathname === to
@@ -58,12 +66,15 @@ export default function Navbar() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={toggle}
-            aria-label="Toggle dark mode"
+            onClick={cycleTheme}
+            aria-label={themeLabel}
+            title={themeLabel}
             className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition dark:text-gray-500 dark:hover:text-gray-200 dark:hover:bg-gray-800"
           >
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            <ThemeIcon className="w-4 h-4" />
           </button>
+
+          {navItem('/profile', 'Profile', UserCircle)}
 
           <button
             onClick={handleLogout}

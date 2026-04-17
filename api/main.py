@@ -10,7 +10,7 @@ from config import ADMIN_EMAIL
 from database import Base, SessionLocal, engine
 from limiter import limiter
 from models import User
-from routers import admin, auth, flights, routes
+from routers import admin, auth, flights, profile, routes
 
 app = FastAPI(title="El Cheapo API", version="0.1.0")
 
@@ -38,6 +38,7 @@ async def add_security_headers(request: Request, call_next):
 app.include_router(auth.router)
 app.include_router(flights.router)
 app.include_router(routes.router)
+app.include_router(profile.router)
 app.include_router(admin.router)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -57,6 +58,10 @@ def startup():
             "ALTER TABLE routes ADD COLUMN IF NOT EXISTS "
             "passengers INTEGER NOT NULL DEFAULT 1"
         ))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS default_origin VARCHAR(3)"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS travel_adults INTEGER NOT NULL DEFAULT 1"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS travel_children INTEGER NOT NULL DEFAULT 0"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS theme_preference VARCHAR(10) NOT NULL DEFAULT 'system'"))
     db = SessionLocal()
     try:
         if not db.query(User).filter(User.email == ADMIN_EMAIL).first():
