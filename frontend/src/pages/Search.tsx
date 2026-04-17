@@ -25,11 +25,12 @@ function toISO(d: Date) {
   ].join('-')
 }
 
-function calcChildAge(birthdate: string, travelDate: Date): number {
+function ageFromBirthdate(birthdate: string): number {
   const birth = new Date(birthdate + 'T12:00:00')
-  let age = travelDate.getFullYear() - birth.getFullYear()
-  const m = travelDate.getMonth() - birth.getMonth()
-  if (m < 0 || (m === 0 && travelDate.getDate() < birth.getDate())) age--
+  const now = new Date()
+  let age = now.getFullYear() - birth.getFullYear()
+  const m = now.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--
   return Math.max(0, age)
 }
 
@@ -44,8 +45,6 @@ function fromISO(s: string) {
   return new Date(s + 'T12:00:00')
 }
 
-const today = new Date().toISOString().split('T')[0]
-
 export default function Search() {
   const location = useLocation()
 
@@ -56,8 +55,8 @@ export default function Search() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>()
   const [dateTo, setDateTo] = useState<Date | undefined>()
   const [adults, setAdults] = useState(1)
-  const [childrenBirthdates, setChildrenBirthdates] = useState<string[]>([])
-  const passengers = adults + childrenBirthdates.length
+  const [childrenAges, setChildrenAges] = useState<number[]>([])
+  const passengers = adults + childrenAges.length
   const [results, setResults] = useState<SearchResults | null>(null)
   const [searchedRoute, setSearchedRoute] = useState<{ origin: Airport; destination: Airport; dateFrom: string; dateTo: string; passengers: number } | null>(null)
   const [selectedOutbound, setSelectedOutbound] = useState<Flight | null>(null)
@@ -88,7 +87,7 @@ export default function Search() {
           if (airport) setOrigin(airport)
         }
         setAdults(data.travel_adults ?? 1)
-        setChildrenBirthdates(data.travel_children_birthdates ?? [])
+        setChildrenAges((data.travel_children_birthdates ?? []).map(ageFromBirthdate))
       })
       .catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -106,7 +105,7 @@ export default function Search() {
     setAlertPrice(edit.alertPrice)
     setNotifyAvailable(edit.notifyAvailable)
     setAdults(edit.passengers ?? 1)
-    setChildrenBirthdates([])
+    setChildrenAges([])
     setTrackRoute(true)
   }, [location.state])
 
@@ -120,7 +119,7 @@ export default function Search() {
     setDateFrom(run.dateFrom)
     setDateTo(run.dateTo)
     setAdults(pax)
-    setChildrenBirthdates([])
+    setChildrenAges([])
     doSearch(run.origin, run.destination, run.dateFrom, run.dateTo, pax)
   // doSearch is stable (no deps change it) — only re-run when state changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -266,32 +265,34 @@ export default function Search() {
                 </div>
 
                 {/* Children */}
-                {childrenBirthdates.map((bd, i) => {
-                  const refDate = dateFrom ?? new Date()
-                  const age = bd ? calcChildAge(bd, refDate) : null
-                  return (
-                    <div key={i} className="flex items-center gap-1.5 mb-1.5">
-                      <span className="text-xs text-gray-500 dark:text-gray-400 w-12 shrink-0">Child {i + 1}</span>
-                      <input
-                        type="date"
-                        value={bd}
-                        max={today}
-                        onChange={e => setChildrenBirthdates(prev => prev.map((d, idx) => idx === i ? e.target.value : d))}
-                        className="flex-1 min-w-0 text-xs px-2 py-1.5 rounded-lg border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                      />
-                      {age !== null && (
-                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded shrink-0 ${childAgeBadgeClass(age)}`}>{age}y</span>
-                      )}
-                      <button type="button" onClick={() => setChildrenBirthdates(prev => prev.filter((_, idx) => idx !== i))}
-                        className="text-gray-400 hover:text-red-500 transition shrink-0 dark:text-gray-600 dark:hover:text-red-400">
-                        <X className="w-3.5 h-3.5" />
+                {childrenAges.map((age, i) => (
+                  <div key={i} className="flex items-center gap-2 mb-1.5">
+                    <span className="text-xs text-gray-500 dark:text-gray-400 w-12 shrink-0">Child {i + 1}</span>
+                    <div className="flex items-center gap-1.5">
+                      <button type="button" onClick={() => setChildrenAges(prev => prev.map((a, idx) => idx === i ? Math.max(0, a - 1) : a))}
+                        disabled={age <= 0}
+                        className="w-7 h-7 rounded-lg border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition text-sm dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+                        −
+                      </button>
+                      <span className="w-5 text-center text-sm font-semibold text-gray-900 dark:text-white">{age}</span>
+                      <button type="button" onClick={() => setChildrenAges(prev => prev.map((a, idx) => idx === i ? Math.min(15, a + 1) : a))}
+                        disabled={age >= 15}
+                        className="w-7 h-7 rounded-lg border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition text-sm dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+                        +
                       </button>
                     </div>
-                  )
-                })}
+                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded shrink-0 ${childAgeBadgeClass(age)}`}>
+                      {age < 2 ? 'Infant' : 'Child'}
+                    </span>
+                    <button type="button" onClick={() => setChildrenAges(prev => prev.filter((_, idx) => idx !== i))}
+                      className="text-gray-400 hover:text-red-500 transition shrink-0 dark:text-gray-600 dark:hover:text-red-400 ml-auto">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
 
                 {passengers < 9 && (
-                  <button type="button" onClick={() => setChildrenBirthdates(prev => [...prev, ''])}
+                  <button type="button" onClick={() => setChildrenAges(prev => [...prev, 5])}
                     className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium transition mt-1 dark:text-brand-400 dark:hover:text-brand-300">
                     <Plus className="w-3.5 h-3.5" />
                     Add child
