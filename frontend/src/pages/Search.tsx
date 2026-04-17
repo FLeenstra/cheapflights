@@ -25,6 +25,20 @@ function toISO(d: Date) {
   ].join('-')
 }
 
+function calcChildAge(birthdate: string, travelDate: Date): number {
+  const birth = new Date(birthdate + 'T12:00:00')
+  let age = travelDate.getFullYear() - birth.getFullYear()
+  const m = travelDate.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && travelDate.getDate() < birth.getDate())) age--
+  return Math.max(0, age)
+}
+
+function childAgeBadgeClass(age: number): string {
+  if (age < 2)  return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+  if (age < 16) return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+  return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+}
+
 // Parse an ISO date string back into a local-noon Date (avoids off-by-one on re-search)
 function fromISO(s: string) {
   return new Date(s + 'T12:00:00')
@@ -40,6 +54,7 @@ export default function Search() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>()
   const [dateTo, setDateTo] = useState<Date | undefined>()
   const [passengers, setPassengers] = useState(1)
+  const [profileChildrenBirthdates, setProfileChildrenBirthdates] = useState<string[]>([])
   const [results, setResults] = useState<SearchResults | null>(null)
   const [searchedRoute, setSearchedRoute] = useState<{ origin: Airport; destination: Airport; dateFrom: string; dateTo: string; passengers: number } | null>(null)
   const [selectedOutbound, setSelectedOutbound] = useState<Flight | null>(null)
@@ -69,7 +84,9 @@ export default function Search() {
           const airport = airports.find((a: Airport) => a.iata === data.default_origin)
           if (airport) setOrigin(airport)
         }
-        const total = Math.min(9, Math.max(1, (data.travel_adults ?? 1) + (data.travel_children ?? 0)))
+        const birthdates: string[] = data.travel_children_birthdates ?? []
+        setProfileChildrenBirthdates(birthdates)
+        const total = Math.min(9, Math.max(1, (data.travel_adults ?? 1) + birthdates.length))
         if (total > 1) setPassengers(total)
       })
       .catch(() => {})
@@ -236,6 +253,22 @@ export default function Search() {
                   onChange={e => setPassengers(Math.min(9, Math.max(1, parseInt(e.target.value, 10) || 1)))}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 />
+                {profileChildrenBirthdates.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {profileChildrenBirthdates.map((bd, i) => {
+                      const refDate = dateFrom ?? new Date()
+                      const age = calcChildAge(bd, refDate)
+                      return (
+                        <span key={i} className={`text-xs font-medium px-2 py-0.5 rounded-md ${childAgeBadgeClass(age)}`}>
+                          {age}y
+                        </span>
+                      )
+                    })}
+                    <span className="text-xs text-gray-400 self-center dark:text-gray-500">
+                      children{dateFrom ? ' at departure' : ''}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

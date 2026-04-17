@@ -14,21 +14,16 @@ function renderProfile() {
 const defaultProfile = {
   default_origin: null,
   travel_adults: 1,
-  travel_children: 0,
+  travel_children_birthdates: [],
   theme_preference: 'system',
 }
 
 beforeEach(() => {
   vi.restoreAllMocks()
-  // Navbar /auth/me fetch
   vi.spyOn(global, 'fetch').mockImplementation((url: RequestInfo | URL) => {
     const path = url.toString()
-    if (path.includes('/auth/me')) {
-      return Promise.resolve({ ok: true, json: async () => ({ is_admin: false }) } as Response)
-    }
-    if (path.includes('/profile/') && !path.includes('PUT')) {
-      return Promise.resolve({ ok: true, json: async () => defaultProfile } as Response)
-    }
+    if (path.includes('/auth/me')) return Promise.resolve({ ok: true, json: async () => ({ is_admin: false }) } as Response)
+    if (path.includes('/profile/')) return Promise.resolve({ ok: true, json: async () => defaultProfile } as Response)
     return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
   })
 })
@@ -42,7 +37,6 @@ describe('Profile page', () => {
   })
 
   it('shows loading skeletons before profile loads', () => {
-    renderProfile()
     const { container } = renderProfile()
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument()
   })
@@ -54,23 +48,28 @@ describe('Profile page', () => {
     expect(screen.getByText('Device')).toBeInTheDocument()
   })
 
-  it('pre-fills travel group from profile', async () => {
+  it('shows children from profile with age badges', async () => {
     vi.spyOn(global, 'fetch').mockImplementation((url: RequestInfo | URL) => {
       const path = url.toString()
       if (path.includes('/auth/me')) return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
-      if (path.includes('/profile/')) return Promise.resolve({ ok: true, json: async () => ({ ...defaultProfile, travel_adults: 2, travel_children: 1 }) } as Response)
+      if (path.includes('/profile/')) return Promise.resolve({
+        ok: true,
+        json: async () => ({ ...defaultProfile, travel_adults: 2, travel_children_birthdates: ['2017-06-01', '2020-03-15'] }),
+      } as Response)
       return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
     })
     renderProfile()
-    await waitFor(() => expect(screen.getByText('3 passengers total')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Child 1')).toBeInTheDocument())
+    expect(screen.getByText('Child 2')).toBeInTheDocument()
+    expect(screen.getByText('4 passengers total')).toBeInTheDocument()
   })
 
-  it('calls PUT /profile/ with correct body on save', async () => {
+  it('calls PUT /profile/ with travel_children_birthdates on save', async () => {
     const fetchMock = vi.spyOn(global, 'fetch').mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
       const path = url.toString()
       if (path.includes('/auth/me')) return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
       if (path.includes('/profile/')) {
-        if (init?.method === 'PUT') return Promise.resolve({ ok: true, json: async () => defaultProfile } as Response)
+        if ((init as RequestInit)?.method === 'PUT') return Promise.resolve({ ok: true, json: async () => defaultProfile } as Response)
         return Promise.resolve({ ok: true, json: async () => defaultProfile } as Response)
       }
       return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
@@ -85,7 +84,7 @@ describe('Profile page', () => {
       expect(putCall).toBeTruthy()
       const body = JSON.parse((putCall![1] as RequestInit).body as string)
       expect(body.travel_adults).toBe(1)
-      expect(body.travel_children).toBe(0)
+      expect(body.travel_children_birthdates).toEqual([])
       expect(body.theme_preference).toBe('system')
     })
   })

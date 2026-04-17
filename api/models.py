@@ -31,7 +31,7 @@ class User(Base):
 
     default_origin: Mapped[str | None] = mapped_column(String(3), nullable=True)
     travel_adults: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
-    travel_children: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    travel_children_birthdates: Mapped[str] = mapped_column(String, nullable=False, default="[]", server_default="'[]'")
     theme_preference: Mapped[str] = mapped_column(String(10), nullable=False, default="system", server_default="system")
 
     routes: Mapped[list["Route"]] = relationship("Route", back_populates="user")

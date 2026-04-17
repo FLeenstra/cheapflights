@@ -61,6 +61,7 @@ def startup():
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS default_origin VARCHAR(3)"))
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS travel_adults INTEGER NOT NULL DEFAULT 1"))
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS travel_children INTEGER NOT NULL DEFAULT 0"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS travel_children_birthdates TEXT NOT NULL DEFAULT '[]'"))
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS theme_preference VARCHAR(10) NOT NULL DEFAULT 'system'"))
     db = SessionLocal()
     try:

@@ -1,4 +1,6 @@
+import json
 import re
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
@@ -17,7 +19,7 @@ _VALID_THEMES = {"light", "dark", "system"}
 class ProfileUpdate(BaseModel):
     default_origin: str | None = None
     travel_adults: int = 1
-    travel_children: int = 0
+    travel_children_birthdates: list[str] = []
     theme_preference: str = "system"
 
     @field_validator("default_origin")
@@ -36,11 +38,18 @@ class ProfileUpdate(BaseModel):
             raise ValueError("adults must be between 1 and 9")
         return v
 
-    @field_validator("travel_children")
+    @field_validator("travel_children_birthdates")
     @classmethod
-    def validate_children(cls, v):
-        if not 0 <= v <= 9:
-            raise ValueError("children must be between 0 and 9")
+    def validate_birthdates(cls, v):
+        if len(v) > 8:
+            raise ValueError("Cannot register more than 8 children")
+        for d in v:
+            try:
+                datetime.strptime(d, "%Y-%m-%d")
+            except ValueError:
+                raise ValueError(f"Invalid date '{d}'. Use YYYY-MM-DD")
+            if d > datetime.today().strftime("%Y-%m-%d"):
+                raise ValueError(f"Birthdate '{d}' cannot be in the future")
         return v
 
     @field_validator("theme_preference")
@@ -51,11 +60,18 @@ class ProfileUpdate(BaseModel):
         return v
 
 
+def _parse_birthdates(user: User) -> list[str]:
+    try:
+        return json.loads(user.travel_children_birthdates or "[]")
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
 def _profile_dict(user: User) -> dict:
     return {
         "default_origin": user.default_origin,
         "travel_adults": user.travel_adults,
-        "travel_children": user.travel_children,
+        "travel_children_birthdates": _parse_birthdates(user),
         "theme_preference": user.theme_preference,
     }
 
@@ -71,13 +87,12 @@ def update_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    total = data.travel_adults + data.travel_children
-    if total > 9:
+    if data.travel_adults + len(data.travel_children_birthdates) > 9:
         raise HTTPException(status_code=422, detail="Total passengers (adults + children) cannot exceed 9")
 
     current_user.default_origin = data.default_origin
     current_user.travel_adults = data.travel_adults
-    current_user.travel_children = data.travel_children
+    current_user.travel_children_birthdates = json.dumps(data.travel_children_birthdates)
     current_user.theme_preference = data.theme_preference
     db.commit()
     return _profile_dict(current_user)
