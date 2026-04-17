@@ -257,7 +257,7 @@ export default function Search() {
                       −
                     </button>
                     <span className="w-5 text-center text-sm font-semibold text-gray-900 dark:text-white">{adults}</span>
-                    <button type="button" onClick={() => setAdults(a => Math.min(9 - childrenBirthdates.length, a + 1))} disabled={passengers >= 9}
+                    <button type="button" onClick={() => setAdults(a => Math.min(9 - childrenAges.length, a + 1))} disabled={passengers >= 9}
                       className="w-7 h-7 rounded-lg border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition text-sm dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
                       +
                     </button>
