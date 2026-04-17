@@ -15,6 +15,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 - **Alert options** — set a max group price alert, an availability alert (notify when any flight appears), or both when saving a search
 - **Hourly route checker** — background scheduler checks every active route with an alert, logs results, and deactivates the route once its goal is met
 - **Goal reached indicator** — saved searches show a green "Goal reached" banner with the exact timestamp when a price or availability goal was first met
+- **User profile** — set a default departure airport and travel group (adults + children) to pre-fill the search form; choose light, dark, or device-matched theme
 - **Admin panel** — site admin can view all users (sorted by active searches), browse scheduler logs grouped by run, and manually trigger the route checker
 - **Fully containerised** — one `docker compose up` gets you a running stack
 
@@ -239,6 +240,28 @@ GET /flights/search?origin=DUB&destination=BCN&date_from=2025-08-01&date_to=2025
 }
 ```
 
+### Profile
+
+Both endpoints require authentication.
+
+| Method | Path | Body | Description |
+|---|---|---|---|
+| `GET` | `/profile/` | — | Return the current user's profile defaults |
+| `PUT` | `/profile/` | see below | Update profile defaults |
+
+#### Profile body
+
+```json
+{
+  "default_origin": "DUB",
+  "travel_adults": 2,
+  "travel_children": 1,
+  "theme_preference": "dark"
+}
+```
+
+All fields optional (omitted fields reset to defaults). `default_origin` must be a valid 3-letter IATA code or `null`. `travel_adults` 1–9, `travel_children` 0–9, total ≤ 9. `theme_preference` must be `"light"`, `"dark"`, or `"system"`.
+
 ### Admin
 
 All endpoints require the authenticated user to be the admin (email matches `ADMIN_EMAIL`).
@@ -269,7 +292,7 @@ docker compose run --rm test pytest tests/ -v --cov=. --cov-report=term-missing
 
 The test suite uses an in-memory SQLite database for full isolation. All Ryanair API calls are mocked — no network access required.
 
-Current coverage: **99%** across all source files (170 tests; `routers/routes.py` and `models.py` at 100%).
+Current coverage: **99%** across all source files (183 tests; `routers/routes.py` and `models.py` at 100%).
 
 ### Frontend (vitest)
 
@@ -296,6 +319,7 @@ cheapflights/
 │   │   ├── admin.py         # GET /admin/users, GET /admin/logs, POST /admin/run-check
 │   │   ├── auth.py          # register, login, logout, me, forgot-password, reset-password + JWT dependency
 │   │   ├── flights.py       # GET /flights/search + Ryanair API logic
+│   │   ├── profile.py       # GET/PUT /profile/
 │   │   └── routes.py        # GET/POST/PUT/DELETE /routes/
 │   ├── tests/
 │   │   ├── conftest.py      # SQLite test client + fixtures
@@ -305,14 +329,15 @@ cheapflights/
 │   │   ├── test_flights.py
 │   │   ├── test_health.py
 │   │   ├── test_models.py
+│   │   ├── test_profile.py
 │   │   ├── test_routes.py
 │   │   └── test_scheduler.py
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx          # Router (Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Admin)
-│   │   ├── pages/           # Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Admin
+│   │   ├── App.tsx          # Router (Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Profile, Admin)
+│   │   ├── pages/           # Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Profile, Admin
 │   │   ├── components/      # Navbar, AirportInput, DateRangePicker, FlightList, PriceSuggestions
 │   │   └── data/
 │   │       └── airports.ts  # IATA code database
@@ -363,6 +388,7 @@ The saved searches page reflects the goal status: once a goal is reached the car
 - [x] Return-trip total in the main results view (cheapest outbound + return, shown between the search form and results)
 - [x] Multi-passenger support — search, book, and track prices for up to 9 passengers; group totals shown throughout
 - [x] Route-aware destination autocomplete — only destinations Ryanair actually flies from the selected origin are shown (24 h cached)
+- [x] User profile — default departure airport, travel group (adults + children), and light/dark/system theme preference
 - [ ] Support for multi-month searches
 - [ ] Other airlines beyond Ryanair
 
