@@ -103,4 +103,28 @@ describe('AirportInput', () => {
     const { container } = render(<AirportInput {...baseProps} loading={true} />)
     expect(container.querySelector('.animate-spin')).toBeInTheDocument()
   })
+
+  it('pre-fills query with city name when a value is already selected and the input is focused', () => {
+    const selected = { iata: 'DUB', city: 'Dublin', country: 'Ireland' }
+    render(<AirportInput {...baseProps} value={selected} />)
+    const input = screen.getByDisplayValue('Dublin (DUB)')
+    fireEvent.focus(input)
+    expect((input as HTMLInputElement).value).toBe('Dublin')
+  })
+
+  it('shows matching dropdown results when focusing a pre-filled input', () => {
+    const selected = { iata: 'DUB', city: 'Dublin', country: 'Ireland' }
+    render(<AirportInput {...baseProps} value={selected} />)
+    const input = screen.getByDisplayValue('Dublin (DUB)')
+    fireEvent.focus(input)
+    expect(screen.getByText('Dublin')).toBeInTheDocument()
+    expect(screen.getByText('DUB')).toBeInTheDocument()
+  })
+
+  it('leaves query empty when focusing an input with no value', () => {
+    render(<AirportInput {...baseProps} value={null} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    expect((input as HTMLInputElement).value).toBe('')
+  })
 })

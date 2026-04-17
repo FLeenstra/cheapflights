@@ -101,7 +101,7 @@ export default function AirportInput({ label, placeholder, value, onChange, allo
           value={open ? query : displayValue}
           onFocus={() => {
             setOpen(true)
-            setQuery('')
+            setQuery(value?.city ?? '')
           }}
           onChange={e => {
             setQuery(sanitizeText(e.target.value))
