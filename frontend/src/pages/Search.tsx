@@ -111,15 +111,17 @@ export default function Search() {
 
   // Immediately run a search when arriving from a saved-search card click
   useEffect(() => {
-    const run = (location.state as { runSearch?: { origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; passengers?: number } } | null)?.runSearch
+    const run = (location.state as { runSearch?: { origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; passengers?: number; adultsCount?: number; childrenAges?: number[] } } | null)?.runSearch
     if (!run) return
-    const pax = run.passengers ?? 1
+    const runAdults = run.adultsCount ?? run.passengers ?? 1
+    const runChildren = run.childrenAges ?? []
+    const pax = runAdults + runChildren.length
     setOrigin(run.origin)
     setDestination(run.destination)
     setDateFrom(run.dateFrom)
     setDateTo(run.dateTo)
-    setAdults(pax)
-    setChildrenAges([])
+    setAdults(runAdults)
+    setChildrenAges(runChildren)
     doSearch(run.origin, run.destination, run.dateFrom, run.dateTo, pax)
   // doSearch is stable (no deps change it) — only re-run when state changes
   // eslint-disable-next-line react-hooks/exhaustive-deps

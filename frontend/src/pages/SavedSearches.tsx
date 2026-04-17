@@ -83,6 +83,8 @@ export default function SavedSearches() {
           dateFrom: new Date(route.date_from + 'T12:00:00'),
           dateTo: new Date(route.date_to + 'T12:00:00'),
           passengers: route.passengers,
+          adultsCount: route.adults_count ?? route.passengers,
+          childrenAges: route.children_ages ?? [],
         },
       },
     })
