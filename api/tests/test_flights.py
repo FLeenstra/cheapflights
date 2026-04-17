@@ -587,7 +587,7 @@ def _routes_response(destinations: list[str]):
     mock = MagicMock()
     mock.ok = True
     mock.json.return_value = [
-        {"arrivalAirport": {"iataCode": iata}} for iata in destinations
+        {"arrivalAirport": {"code": iata}} for iata in destinations
     ]
     return mock
 

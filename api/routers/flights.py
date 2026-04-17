@@ -142,9 +142,9 @@ def get_routes(origin: str):
         if not r.ok:
             raise HTTPException(status_code=502, detail="Failed to fetch routes from Ryanair")
         destinations = [
-            route["arrivalAirport"]["iataCode"]
+            route["arrivalAirport"]["code"]
             for route in r.json()
-            if route.get("arrivalAirport", {}).get("iataCode")
+            if route.get("arrivalAirport", {}).get("code")
         ]
     except HTTPException:
         raise
