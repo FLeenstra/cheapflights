@@ -535,19 +535,13 @@ def test_send_alert_email_includes_flight_table_in_html():
     assert "65.00" in html  # cheapest total
 
 
-def test_send_alert_email_includes_single_booking_links():
+def test_send_alert_email_has_book_on_ryanair_button():
     html = _get_alert_email_html([_MOCK_FLIGHT_OUT], [_MOCK_FLIGHT_IN])
-    assert "Single" in html
-    assert "isReturn=false" in html
+    assert "Book on Ryanair" in html
     assert "originIata=DUB" in html
-
-
-def test_send_alert_email_includes_return_booking_links():
-    html = _get_alert_email_html([_MOCK_FLIGHT_OUT], [_MOCK_FLIGHT_IN])
-    assert "Return" in html
-    assert "isReturn=true" in html
-    assert "dateOut=2026-06-01" in html
-    assert "dateIn=2026-06-08" in html
+    # Per-row booking buttons must be gone; only the single bottom CTA remains
+    assert "Single" not in html
+    assert html.count("ryanair.com") == 1
 
 
 # ---------------------------------------------------------------------------

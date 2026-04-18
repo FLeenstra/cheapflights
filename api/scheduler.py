@@ -66,38 +66,16 @@ def _ryanair_url(
     return "https://www.ryanair.com/ie/en/trip/flights/select?" + urlencode(params)
 
 
-def _flight_table_html(
-    flights: list[dict], label: str, origin: str, destination: str, d,
-    outbound_date: str | None = None, inbound_date: str | None = None,
-    adults: int = 1, children_ages: list[int] | None = None,
-) -> str:
+def _flight_table_html(flights: list[dict], label: str, origin: str, destination: str, d) -> str:
     rows = ""
     for i, f in enumerate(flights):
         time = f["departure_time"][11:16] if len(f["departure_time"]) >= 16 else f["departure_time"]
-        flight_date = f["departure_time"][:10] if len(f["departure_time"]) >= 10 else str(d)
         badge = (
             '<td style="padding:10px 12px;"><span style="background:#eff6ff;color:#2563eb;'
             'font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">Best price</span></td>'
             if i == 0 else '<td style="padding:10px 12px;"></td>'
         )
         bg = "#f8fafc" if i % 2 == 0 else "#ffffff"
-        single_url = _ryanair_url(f["origin"], f["destination"], flight_date, adults=adults, children_ages=children_ages)
-        single_btn = (
-            f'<a href="{single_url}" style="display:inline-block;padding:3px 9px;font-size:11px;'
-            f'font-weight:600;color:#6b7280;border:1px solid #d1d5db;border-radius:6px;'
-            f'text-decoration:none;margin-right:4px;">Single</a>'
-        )
-        return_btn = ""
-        if outbound_date and inbound_date:
-            return_url = _ryanair_url(origin if label == "Outbound" else destination,
-                                      destination if label == "Outbound" else origin,
-                                      outbound_date, inbound_date,
-                                      adults=adults, children_ages=children_ages)
-            return_btn = (
-                f'<a href="{return_url}" style="display:inline-block;padding:3px 9px;font-size:11px;'
-                f'font-weight:600;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;'
-                f'text-decoration:none;">Return</a>'
-            )
         rows += (
             f'<tr style="background:{bg};">'
             f'{badge}'
@@ -105,7 +83,6 @@ def _flight_table_html(
             f'<td style="padding:10px 12px;font-size:14px;color:#374151;">{time}</td>'
             f'<td style="padding:10px 12px;font-size:14px;font-weight:700;color:#1d4ed8;">'
             f'&euro;{f["price"]:.2f}</td>'
-            f'<td style="padding:10px 12px;white-space:nowrap;">{single_btn}{return_btn}</td>'
             f'</tr>'
         )
     return (
@@ -123,31 +100,18 @@ def _flight_table_html(
         f'text-transform:uppercase;letter-spacing:0.05em;">Departs</th>'
         f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
         f'text-transform:uppercase;letter-spacing:0.05em;">Price</th>'
-        f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
-        f'text-transform:uppercase;letter-spacing:0.05em;">Book</th>'
         f'</tr></thead>'
         f'<tbody>{rows}</tbody>'
         f'</table>'
     )
 
 
-def _flight_table_text(flights: list[dict], label: str, origin: str, destination: str, d,
-                       outbound_date: str | None = None, inbound_date: str | None = None,
-                       adults: int = 1, children_ages: list[int] | None = None) -> str:
+def _flight_table_text(flights: list[dict], label: str, origin: str, destination: str, d) -> str:
     lines = [f"{label} — {origin} → {destination} — {d}"]
     for i, f in enumerate(flights):
         time = f["departure_time"][11:16] if len(f["departure_time"]) >= 16 else f["departure_time"]
-        flight_date = f["departure_time"][:10] if len(f["departure_time"]) >= 10 else str(d)
         prefix = "★ " if i == 0 else "  "
-        single_url = _ryanair_url(f["origin"], f["destination"], flight_date, adults=adults, children_ages=children_ages)
         lines.append(f"  {prefix}{f['flight_number']}  {time}  €{f['price']:.2f}")
-        lines.append(f"    Single: {single_url}")
-        if outbound_date and inbound_date:
-            return_url = _ryanair_url(origin if label == "Outbound" else destination,
-                                      destination if label == "Outbound" else origin,
-                                      outbound_date, inbound_date,
-                                      adults=adults, children_ages=children_ages)
-            lines.append(f"    Return: {return_url}")
     return "\n".join(lines) + "\n"
 
 
@@ -228,11 +192,11 @@ def _send_alert_email(
     date_from_str = str(date_from)
     date_to_str = str(date_to)
     if outbound_flights:
-        flights_html += _flight_table_html(outbound_flights, "Outbound", origin, destination, date_from, date_from_str, date_to_str, adults=adults_count, children_ages=_children)
-        flights_text += _flight_table_text(outbound_flights, "Outbound", origin, destination, date_from, date_from_str, date_to_str, adults=adults_count, children_ages=_children) + "\n"
+        flights_html += _flight_table_html(outbound_flights, "Outbound", origin, destination, date_from)
+        flights_text += _flight_table_text(outbound_flights, "Outbound", origin, destination, date_from) + "\n"
     if inbound_flights:
-        flights_html += _flight_table_html(inbound_flights, "Return", destination, origin, date_to, date_from_str, date_to_str, adults=adults_count, children_ages=_children)
-        flights_text += _flight_table_text(inbound_flights, "Return", destination, origin, date_to, date_from_str, date_to_str, adults=adults_count, children_ages=_children) + "\n"
+        flights_html += _flight_table_html(inbound_flights, "Return", destination, origin, date_to)
+        flights_text += _flight_table_text(inbound_flights, "Return", destination, origin, date_to) + "\n"
     if outbound_flights and inbound_flights:
         cheapest_out = outbound_flights[0]["price"]
         cheapest_in = inbound_flights[0]["price"]
