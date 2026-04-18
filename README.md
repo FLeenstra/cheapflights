@@ -16,7 +16,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 - **Hourly route checker** — background scheduler checks every active route with an alert, logs results, and deactivates the route once its goal is met
 - **Goal reached indicator** — saved searches show a green "Goal reached" banner with the exact timestamp when a price or availability goal was first met
 - **User profile** — set a default departure airport and travel group (adults + children) to pre-fill the search form; choose light, dark, or device-matched theme
-- **Admin panel** — site admin can view all users (sorted by active searches), browse scheduler logs grouped by run, and manually trigger the route checker
+- **Admin panel** — admins can view all users, browse scheduler logs grouped by run, manually trigger the route checker, and promote/demote other users to admin; admin accounts cannot be deleted
 - **Fully containerised** — one `docker compose up` gets you a running stack
 
 ---
@@ -268,13 +268,15 @@ All fields optional (omitted fields reset to defaults). `default_origin` must be
 
 ### Admin
 
-All endpoints require the authenticated user to be the admin (email matches `ADMIN_EMAIL`).
+All endpoints require the authenticated user to have `is_admin = true`. The primary admin (email matches `ADMIN_EMAIL`) is granted `is_admin` on startup; additional admins can be granted via the panel.
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/admin/users` | List all users with email, join date, and saved-search count |
+| `GET` | `/admin/users` | List all users with email, join date, saved-search count, and `is_admin` flag |
 | `GET` | `/admin/logs` | Last 200 scheduler check logs with route info, prices, and goal flags |
 | `POST` | `/admin/run-check` | Trigger the hourly scheduler job immediately; returns `{ "routes_checked": N }` |
+| `PUT` | `/admin/users/{id}/make-admin` | Grant admin to a user |
+| `DELETE` | `/admin/users/{id}/make-admin` | Revoke admin from a user (primary admin is protected) |
 
 ### Health
 
@@ -387,7 +389,7 @@ The saved searches page reflects the goal status: once a goal is reached the car
 - [x] Hourly background scheduler checks routes and logs results to `route_check_logs`
 - [x] Route auto-deactivated when its goal is reached (stops being checked)
 - [x] Saved searches show "Goal reached" banner with timestamp
-- [x] Admin panel — users list (sorted by searches), scheduler logs grouped by run, manual trigger
+- [x] Admin panel — users list (sorted by searches), scheduler logs grouped by run, manual trigger, promote/demote admin
 - [x] Alert emails — styled HTML email sent to the user when a price or availability goal is reached
 - [x] Return-trip total in the main results view (cheapest outbound + return, shown between the search form and results)
 - [x] Multi-passenger support — search, book, and track prices for up to 9 passengers; group totals shown throughout

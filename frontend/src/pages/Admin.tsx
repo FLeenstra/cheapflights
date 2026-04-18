@@ -9,6 +9,7 @@ interface AdminUser {
   email: string
   created_at: string
   route_count: number
+  is_admin: boolean
 }
 
 interface CheckLog {
@@ -97,6 +98,7 @@ export default function Admin() {
   const [runError, setRunError] = useState('')
   const [error, setError] = useState('')
   const [openRuns, setOpenRuns] = useState<Set<string>>(new Set())
+  const [adminTogglingId, setAdminTogglingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/users', { credentials: 'include' })
@@ -130,6 +132,24 @@ export default function Admin() {
       setRunError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
       setRunning(false)
+    }
+  }
+
+  async function handleToggleAdmin(user: AdminUser) {
+    setAdminTogglingId(user.id)
+    const method = user.is_admin ? 'DELETE' : 'PUT'
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/make-admin`, { method, credentials: 'include' })
+      if (!res.ok) {
+        const data = await res.json()
+        setError(data.detail ?? 'Failed to update admin status')
+        return
+      }
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_admin: !u.is_admin } : u))
+    } catch {
+      setError('Failed to update admin status')
+    } finally {
+      setAdminTogglingId(null)
     }
   }
 
@@ -226,6 +246,7 @@ export default function Admin() {
                       <th className="px-5 py-3">Email</th>
                       <th className="px-5 py-3">Joined</th>
                       <th className="px-5 py-3 text-right">Saved searches</th>
+                      <th className="px-5 py-3 text-center">Admin</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -237,6 +258,20 @@ export default function Admin() {
                           <span className={`font-semibold ${u.route_count > 0 ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-600'}`}>
                             {u.route_count}
                           </span>
+                        </td>
+                        <td className="px-5 py-3 text-center">
+                          {u.is_admin ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-full px-2.5 py-0.5 dark:bg-brand-900/30 dark:border-brand-700 dark:text-brand-300">
+                              Admin
+                            </span>
+                          ) : null}
+                          <button
+                            onClick={() => handleToggleAdmin(u)}
+                            disabled={adminTogglingId === u.id}
+                            className={`ml-2 text-xs underline transition disabled:opacity-40 ${u.is_admin ? 'text-red-500 hover:text-red-700 dark:text-red-400' : 'text-gray-400 hover:text-brand-600 dark:hover:text-brand-400'}`}
+                          >
+                            {adminTogglingId === u.id ? '…' : u.is_admin ? 'Revoke' : 'Make admin'}
+                          </button>
                         </td>
                       </tr>
                     ))}

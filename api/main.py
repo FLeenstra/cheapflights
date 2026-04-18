@@ -75,10 +75,17 @@ def startup():
             "used BOOLEAN NOT NULL DEFAULT FALSE, "
             "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"
         ))
+        conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
     db = SessionLocal()
     try:
-        if not db.query(User).filter(User.email == ADMIN_EMAIL).first():
-            db.add(User(email=ADMIN_EMAIL, password_hash=pwd_context.hash(ADMIN_PASSWORD)))
+        admin = db.query(User).filter(User.email == ADMIN_EMAIL).first()
+        if not admin:
+            db.add(User(email=ADMIN_EMAIL, password_hash=pwd_context.hash(ADMIN_PASSWORD), is_admin=True))
+            db.commit()
+        elif not admin.is_admin:
+            admin.is_admin = True
             db.commit()
     finally:
         db.close()

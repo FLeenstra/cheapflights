@@ -125,6 +125,16 @@ def test_list_users_response_fields(client):
     assert "email" in u
     assert "created_at" in u
     assert "route_count" in u
+    assert "is_admin" in u
+
+
+def test_list_users_admin_flag_set(client):
+    admin_token = _admin_token(client)
+    _register(client, "regular@test.com")
+    res = client.get("/admin/users", headers=_auth(admin_token))
+    users = {u["email"]: u for u in res.json()}
+    assert users["admin@elcheeapo.com"]["is_admin"] is True
+    assert users["regular@test.com"]["is_admin"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -237,3 +247,77 @@ def test_run_check_zero_routes(client):
     with patch("routers.admin.check_routes", return_value=0):
         res = client.post("/admin/run-check", headers=_auth(admin_token))
     assert res.json()["routes_checked"] == 0
+
+
+# ---------------------------------------------------------------------------
+# PUT /admin/users/{id}/make-admin  &  DELETE /admin/users/{id}/make-admin
+# ---------------------------------------------------------------------------
+
+def _get_user_id(client, admin_token, email):
+    users = client.get("/admin/users", headers=_auth(admin_token)).json()
+    return next(u["id"] for u in users if u["email"] == email)
+
+
+def test_make_admin_promotes_user(client):
+    admin_token = _admin_token(client)
+    _register(client, "promo@test.com")
+    uid = _get_user_id(client, admin_token, "promo@test.com")
+
+    res = client.put(f"/admin/users/{uid}/make-admin", headers=_auth(admin_token))
+    assert res.status_code == 200
+
+    users = client.get("/admin/users", headers=_auth(admin_token)).json()
+    assert next(u["is_admin"] for u in users if u["email"] == "promo@test.com") is True
+
+
+def test_make_admin_requires_admin(client):
+    _register(client, "nonadmin@test.com")
+    token = _register(client, "target@test.com")
+    admin_token = _admin_token(client)
+    uid = _get_user_id(client, admin_token, "target@test.com")
+
+    user_token = client.post("/auth/login", json={"email": "nonadmin@test.com", "password": "Secret1!"}).json()["access_token"]
+    res = client.put(f"/admin/users/{uid}/make-admin", headers=_auth(user_token))
+    assert res.status_code == 403
+
+
+def test_revoke_admin_demotes_user(client):
+    admin_token = _admin_token(client)
+    _register(client, "demote@test.com")
+    uid = _get_user_id(client, admin_token, "demote@test.com")
+    client.put(f"/admin/users/{uid}/make-admin", headers=_auth(admin_token))
+
+    res = client.delete(f"/admin/users/{uid}/make-admin", headers=_auth(admin_token))
+    assert res.status_code == 200
+
+    users = client.get("/admin/users", headers=_auth(admin_token)).json()
+    assert next(u["is_admin"] for u in users if u["email"] == "demote@test.com") is False
+
+
+def test_revoke_admin_cannot_demote_primary_admin(client):
+    admin_token = _admin_token(client)
+    uid = _get_user_id(client, admin_token, "admin@elcheeapo.com")
+
+    res = client.delete(f"/admin/users/{uid}/make-admin", headers=_auth(admin_token))
+    assert res.status_code == 403
+
+
+def test_make_admin_unknown_user_returns_404(client):
+    admin_token = _admin_token(client)
+    import uuid
+    res = client.put(f"/admin/users/{uuid.uuid4()}/make-admin", headers=_auth(admin_token))
+    assert res.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Admin cannot delete their own account
+# ---------------------------------------------------------------------------
+
+def test_admin_cannot_request_account_deletion(client):
+    admin_token = _admin_token(client)
+    from unittest.mock import patch
+    with patch("routers.auth._send_delete_confirmation_email"):
+        res = client.post("/auth/request-delete-account",
+                          headers=_auth(admin_token))
+    assert res.status_code == 403
+    assert "admin" in res.json()["detail"].lower()

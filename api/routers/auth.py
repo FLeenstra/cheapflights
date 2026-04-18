@@ -259,7 +259,7 @@ def me(current_user: User = Depends(get_current_user)):
     return MeResponse(
         id=str(current_user.id),
         email=current_user.email,
-        is_admin=current_user.email == ADMIN_EMAIL,
+        is_admin=current_user.is_admin,
     )
 
 
@@ -267,7 +267,11 @@ def me(current_user: User = Depends(get_current_user)):
 def register(body: RegisterRequest, response: Response, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    user = User(email=body.email, password_hash=pwd_context.hash(body.password))
+    user = User(
+        email=body.email,
+        password_hash=pwd_context.hash(body.password),
+        is_admin=body.email == ADMIN_EMAIL,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -471,6 +475,8 @@ def request_delete_account(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin accounts cannot be deleted")
     # Invalidate any existing unused deletion tokens for this user
     db.query(AccountDeletionToken).filter(
         AccountDeletionToken.user_id == current_user.id,

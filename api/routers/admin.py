@@ -16,7 +16,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 def get_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.email != ADMIN_EMAIL:
+    if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
@@ -26,6 +26,7 @@ class UserOut(BaseModel):
     email: str
     created_at: datetime
     route_count: int
+    is_admin: bool
 
 
 class LogOut(BaseModel):
@@ -68,6 +69,7 @@ def list_users(
             email=u.email,
             created_at=u.created_at,
             route_count=counts.get(u.id, 0),
+            is_admin=u.is_admin,
         )
         for u in users
     ]
@@ -117,3 +119,43 @@ def list_logs(
 def run_check(_: User = Depends(get_admin)):
     count = check_routes()
     return RunCheckResponse(message="Check complete", routes_checked=count)
+
+
+@router.put("/users/{user_id}/make-admin")
+def make_admin(
+    user_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_admin),
+):
+    import uuid as uuid_module
+    try:
+        uid = uuid_module.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="User not found")
+    user = db.query(User).filter(User.id == uid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_admin = True
+    db.commit()
+    return {"message": f"{user.email} is now an admin"}
+
+
+@router.delete("/users/{user_id}/make-admin")
+def revoke_admin(
+    user_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_admin),
+):
+    import uuid as uuid_module
+    try:
+        uid = uuid_module.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="User not found")
+    user = db.query(User).filter(User.id == uid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.email == ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Cannot revoke admin from the primary admin account")
+    user.is_admin = False
+    db.commit()
+    return {"message": f"{user.email} is no longer an admin"}

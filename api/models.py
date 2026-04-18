@@ -42,6 +42,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     default_origin: Mapped[str | None] = mapped_column(String(3), nullable=True)
     travel_adults: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     travel_children_birthdates: Mapped[str] = mapped_column(String, nullable=False, default="[]", server_default="'[]'")
