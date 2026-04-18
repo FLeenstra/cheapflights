@@ -7,6 +7,19 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 
 
+class AccountDeletionToken(Base):
+    __tablename__ = "account_deletion_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user: Mapped["User"] = relationship("User")
+
+
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
 
@@ -29,6 +42,12 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    default_origin: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    travel_adults: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    travel_children_birthdates: Mapped[str] = mapped_column(String, nullable=False, default="[]", server_default="'[]'")
+    theme_preference: Mapped[str] = mapped_column(String(10), nullable=False, default="system", server_default="system")
+
     routes: Mapped[list["Route"]] = relationship("Route", back_populates="user")
 
 
@@ -41,6 +60,8 @@ class Route(Base):
     destination: Mapped[str] = mapped_column(String(3), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     passengers: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    adults_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    children_ages: Mapped[str] = mapped_column(String, nullable=False, default="[]", server_default="'[]'")
     alert_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     notify_available: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     date_from: Mapped[date] = mapped_column(Date, nullable=False)

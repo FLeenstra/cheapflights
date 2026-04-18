@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from jose import jwt
 
-from models import PasswordResetToken
+from models import AccountDeletionToken, PasswordResetToken, Route, RouteCheckLog
 from routers.auth import SECRET_KEY, ALGORITHM
 
 
@@ -233,3 +233,144 @@ def test_send_reset_email_smtp_failure_logs_fallback(capsys):
             _send_reset_email("user@test.com", "http://localhost:5173/reset-password?token=xyz")
     captured = capsys.readouterr()
     assert "http://localhost:5173/reset-password?token=xyz" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# POST /auth/request-delete-account
+# ---------------------------------------------------------------------------
+
+def _register_and_token(client, email="del@test.com", password="Secret1!"):
+    res = client.post("/auth/register", json={"email": email, "password": password})
+    return res.json()["access_token"]
+
+
+def test_request_delete_account_sends_email(client):
+    token = _register_and_token(client)
+    with patch("routers.auth._send_delete_confirmation_email") as mock_send:
+        res = client.post("/auth/request-delete-account",
+                          headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 200
+    mock_send.assert_called_once()
+    assert mock_send.call_args[0][0] == "del@test.com"
+    assert "delete-account?token=" in mock_send.call_args[0][1]
+
+
+def test_request_delete_account_requires_auth(client):
+    res = client.post("/auth/request-delete-account")
+    assert res.status_code in (401, 403)
+
+
+def test_request_delete_account_invalidates_previous_token(client, db):
+    token = _register_and_token(client, "inv@test.com")
+    with patch("routers.auth._send_delete_confirmation_email"):
+        client.post("/auth/request-delete-account",
+                    headers={"Authorization": f"Bearer {token}"})
+        client.post("/auth/request-delete-account",
+                    headers={"Authorization": f"Bearer {token}"})
+    # Only the latest token should be unused
+    unused = db.query(AccountDeletionToken).filter(
+        AccountDeletionToken.used == False  # noqa: E712
+    ).count()
+    assert unused == 1
+
+
+# ---------------------------------------------------------------------------
+# DELETE /auth/delete-account
+# ---------------------------------------------------------------------------
+
+def test_delete_account_success(client, db):
+    token = _register_and_token(client, "gone@test.com")
+    with patch("routers.auth._send_delete_confirmation_email") as mock_send:
+        client.post("/auth/request-delete-account",
+                    headers={"Authorization": f"Bearer {token}"})
+        deletion_token = mock_send.call_args[0][1].split("token=")[1]
+
+    res = client.delete(f"/auth/delete-account?token={deletion_token}")
+    assert res.status_code == 200
+    # User must be gone
+    from models import User
+    assert db.query(User).filter(User.email == "gone@test.com").first() is None
+
+
+def test_delete_account_cascades_routes_and_logs(client, db):
+    from decimal import Decimal
+    token = _register_and_token(client, "cascade@test.com")
+    # Create a route with a check log
+    client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+    }, headers={"Authorization": f"Bearer {token}"})
+    route = db.query(Route).first()
+    db.add(RouteCheckLog(route_id=route.id, outbound_price=Decimal("30.00"),
+                         inbound_price=Decimal("35.00"), total_price=Decimal("65.00"),
+                         flights_found=True))
+    db.commit()
+
+    with patch("routers.auth._send_delete_confirmation_email") as mock_send:
+        client.post("/auth/request-delete-account",
+                    headers={"Authorization": f"Bearer {token}"})
+        deletion_token = mock_send.call_args[0][1].split("token=")[1]
+
+    client.delete(f"/auth/delete-account?token={deletion_token}")
+    assert db.query(Route).count() == 0
+    assert db.query(RouteCheckLog).count() == 0
+
+
+def test_delete_account_invalid_token(client):
+    res = client.delete("/auth/delete-account?token=completely-fake")
+    assert res.status_code == 400
+    assert "invalid" in res.json()["detail"].lower()
+
+
+def test_delete_account_token_cannot_be_reused(client, db):
+    token = _register_and_token(client, "reuse@test.com")
+    with patch("routers.auth._send_delete_confirmation_email") as mock_send:
+        client.post("/auth/request-delete-account",
+                    headers={"Authorization": f"Bearer {token}"})
+        deletion_token = mock_send.call_args[0][1].split("token=")[1]
+
+    client.delete(f"/auth/delete-account?token={deletion_token}")
+    res = client.delete(f"/auth/delete-account?token={deletion_token}")
+    assert res.status_code == 400
+
+
+def test_delete_account_expired_token(client, db):
+    token = _register_and_token(client, "expiredel@test.com")
+    with patch("routers.auth._send_delete_confirmation_email") as mock_send:
+        client.post("/auth/request-delete-account",
+                    headers={"Authorization": f"Bearer {token}"})
+        deletion_token = mock_send.call_args[0][1].split("token=")[1]
+
+    row = db.query(AccountDeletionToken).filter(
+        AccountDeletionToken.token == deletion_token
+    ).first()
+    row.expires_at = datetime.now(timezone.utc) - timedelta(hours=2)
+    db.commit()
+
+    res = client.delete(f"/auth/delete-account?token={deletion_token}")
+    assert res.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# _send_delete_confirmation_email helper
+# ---------------------------------------------------------------------------
+
+def test_send_delete_confirmation_email_no_smtp_logs_url(capsys):
+    from routers.auth import _send_delete_confirmation_email
+    import os
+    os.environ.pop("SMTP_HOST", None)
+    _send_delete_confirmation_email("user@test.com", "http://localhost:5173/delete-account?token=abc")
+    captured = capsys.readouterr()
+    assert "http://localhost:5173/delete-account?token=abc" in captured.out
+
+
+def test_send_delete_confirmation_email_smtp_called(capsys):
+    from routers.auth import _send_delete_confirmation_email
+    env = {"SMTP_HOST": "mailpit", "SMTP_PORT": "1025", "SMTP_USER": "", "SMTP_FROM": "x@x.com"}
+    mock_smtp = MagicMock()
+    mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
+    mock_smtp.__exit__ = MagicMock(return_value=False)
+    with patch.dict("os.environ", env):
+        with patch("routers.auth.smtplib.SMTP", return_value=mock_smtp):
+            _send_delete_confirmation_email("user@test.com", "http://localhost:5173/delete-account?token=abc")
+    mock_smtp.send_message.assert_called_once()

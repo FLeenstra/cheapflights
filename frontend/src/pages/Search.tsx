@@ -1,4 +1,4 @@
-import { BookmarkCheck, Search as SearchIcon } from 'lucide-react'
+import { BookmarkCheck, Plus, Search as SearchIcon, X } from 'lucide-react'
 import { FormEvent, useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import AirportInput from '../components/AirportInput'
@@ -7,7 +7,7 @@ import CheapestTotal from '../components/CheapestTotal'
 import FlightList, { type Flight } from '../components/FlightList'
 import Navbar from '../components/Navbar'
 import PriceSuggestions, { type Suggestion } from '../components/PriceSuggestions'
-import type { Airport } from '../data/airports'
+import { airports, type Airport } from '../data/airports'
 
 interface SearchResults {
   outbound: { flights: Flight[]; error: string | null }
@@ -25,6 +25,21 @@ function toISO(d: Date) {
   ].join('-')
 }
 
+function ageFromBirthdate(birthdate: string): number {
+  const birth = new Date(birthdate + 'T12:00:00')
+  const now = new Date()
+  let age = now.getFullYear() - birth.getFullYear()
+  const m = now.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--
+  return Math.max(0, age)
+}
+
+function childAgeBadgeClass(age: number): string {
+  if (age < 2)  return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+  if (age < 16) return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+  return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+}
+
 // Parse an ISO date string back into a local-noon Date (avoids off-by-one on re-search)
 function fromISO(s: string) {
   return new Date(s + 'T12:00:00')
@@ -39,9 +54,11 @@ export default function Search() {
   const [routesLoading, setRoutesLoading] = useState(false)
   const [dateFrom, setDateFrom] = useState<Date | undefined>()
   const [dateTo, setDateTo] = useState<Date | undefined>()
-  const [passengers, setPassengers] = useState(1)
+  const [adults, setAdults] = useState(1)
+  const [childrenAges, setChildrenAges] = useState<number[]>([])
+  const passengers = adults + childrenAges.length
   const [results, setResults] = useState<SearchResults | null>(null)
-  const [searchedRoute, setSearchedRoute] = useState<{ origin: Airport; destination: Airport; dateFrom: string; dateTo: string; passengers: number } | null>(null)
+  const [searchedRoute, setSearchedRoute] = useState<{ origin: Airport; destination: Airport; dateFrom: string; dateTo: string; passengers: number; infantCount: number } | null>(null)
   const [selectedOutbound, setSelectedOutbound] = useState<Flight | null>(null)
   const [selectedInbound, setSelectedInbound] = useState<Flight | null>(null)
   const [loading, setLoading] = useState(false)
@@ -56,9 +73,29 @@ export default function Search() {
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
 
+  // Pre-fill from profile defaults on a fresh visit (no navigation state)
+  useEffect(() => {
+    const hasNavState = !!(location.state as { runSearch?: unknown; editRoute?: unknown } | null)?.runSearch ||
+                        !!(location.state as { runSearch?: unknown; editRoute?: unknown } | null)?.editRoute
+    if (hasNavState) return
+    fetch('/api/profile/', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return
+        if (data.default_origin) {
+          const airport = airports.find((a: Airport) => a.iata === data.default_origin)
+          if (airport) setOrigin(airport)
+        }
+        setAdults(data.travel_adults ?? 1)
+        setChildrenAges((data.travel_children_birthdates ?? []).map(ageFromBirthdate))
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Pre-fill from navigation state when arriving from the edit button
   useEffect(() => {
-    const edit = (location.state as { editRoute?: { id: string; origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; alertPrice: string; notifyAvailable: boolean; passengers: number } } | null)?.editRoute
+    const edit = (location.state as { editRoute?: { id: string; origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; alertPrice: string; notifyAvailable: boolean; passengers: number; adultsCount?: number; childrenAges?: number[] } } | null)?.editRoute
     if (!edit) return
     setEditRouteId(edit.id)
     setOrigin(edit.origin)
@@ -67,21 +104,25 @@ export default function Search() {
     setDateTo(edit.dateTo)
     setAlertPrice(edit.alertPrice)
     setNotifyAvailable(edit.notifyAvailable)
-    setPassengers(edit.passengers ?? 1)
+    setAdults(edit.adultsCount ?? edit.passengers ?? 1)
+    setChildrenAges(edit.childrenAges ?? [])
     setTrackRoute(true)
   }, [location.state])
 
   // Immediately run a search when arriving from a saved-search card click
   useEffect(() => {
-    const run = (location.state as { runSearch?: { origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; passengers?: number } } | null)?.runSearch
+    const run = (location.state as { runSearch?: { origin: Airport; destination: Airport; dateFrom: Date; dateTo: Date; passengers?: number; adultsCount?: number; childrenAges?: number[] } } | null)?.runSearch
     if (!run) return
-    const pax = run.passengers ?? 1
+    const runAdults = run.adultsCount ?? run.passengers ?? 1
+    const runChildren = run.childrenAges ?? []
+    const pax = runAdults + runChildren.length
     setOrigin(run.origin)
     setDestination(run.destination)
     setDateFrom(run.dateFrom)
     setDateTo(run.dateTo)
-    setPassengers(pax)
-    doSearch(run.origin, run.destination, run.dateFrom, run.dateTo, pax)
+    setAdults(runAdults)
+    setChildrenAges(runChildren)
+    doSearch(run.origin, run.destination, run.dateFrom, run.dateTo, pax, runChildren)
   // doSearch is stable (no deps change it) — only re-run when state changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state])
@@ -109,7 +150,7 @@ export default function Search() {
     await doSearch(origin, destination, dateFrom, dateTo)
   }
 
-  async function doSearch(org: Airport, dest: Airport, from: Date, to: Date, pax = passengers) {
+  async function doSearch(org: Airport, dest: Airport, from: Date, to: Date, pax = passengers, searchedChildrenAges = childrenAges) {
     setFormError('')
     setResults(null)
     setLoading(true)
@@ -128,7 +169,8 @@ export default function Search() {
       setSelectedInbound(null)
       setDateFrom(from)
       setDateTo(to)
-      setSearchedRoute({ origin: org, destination: dest, dateFrom: toISO(from), dateTo: toISO(to), passengers: pax })
+      const infants = searchedChildrenAges.filter(a => a < 2).length
+      setSearchedRoute({ origin: org, destination: dest, dateFrom: toISO(from), dateTo: toISO(to), passengers: pax, infantCount: infants })
       if (data.outbound.flights.length > 0) setNotifyAvailable(false)
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Something went wrong')
@@ -155,6 +197,8 @@ export default function Search() {
           date_from: toISO(dateFrom),
           date_to: toISO(dateTo),
           passengers,
+          adults_count: adults,
+          children_ages: childrenAges,
           alert_price: alertPrice ? parseInt(alertPrice, 10) : null,
           notify_available: notifyAvailable,
         }),
@@ -208,14 +252,57 @@ export default function Search() {
               />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5 dark:text-gray-200">Passengers</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={9}
-                  value={passengers}
-                  onChange={e => setPassengers(Math.min(9, Math.max(1, parseInt(e.target.value, 10) || 1)))}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                />
+
+                {/* Adults row */}
+                <div className="flex items-center justify-between px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 mb-2">
+                  <span className="text-sm text-gray-700 dark:text-gray-200">Adults</span>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setAdults(a => Math.max(1, a - 1))} disabled={adults <= 1}
+                      className="w-7 h-7 rounded-lg border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition text-sm dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+                      −
+                    </button>
+                    <span className="w-5 text-center text-sm font-semibold text-gray-900 dark:text-white">{adults}</span>
+                    <button type="button" onClick={() => setAdults(a => Math.min(9 - childrenAges.length, a + 1))} disabled={passengers >= 9}
+                      className="w-7 h-7 rounded-lg border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition text-sm dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Children */}
+                {childrenAges.map((age, i) => (
+                  <div key={i} className="flex items-center gap-2 mb-1.5">
+                    <span className="text-xs text-gray-500 dark:text-gray-400 w-12 shrink-0">Child {i + 1}</span>
+                    <div className="flex items-center gap-1.5">
+                      <button type="button" onClick={() => setChildrenAges(prev => prev.map((a, idx) => idx === i ? Math.max(0, a - 1) : a))}
+                        disabled={age <= 0}
+                        className="w-7 h-7 rounded-lg border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition text-sm dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+                        −
+                      </button>
+                      <span className="w-5 text-center text-sm font-semibold text-gray-900 dark:text-white">{age}</span>
+                      <button type="button" onClick={() => setChildrenAges(prev => prev.map((a, idx) => idx === i ? Math.min(15, a + 1) : a))}
+                        disabled={age >= 15}
+                        className="w-7 h-7 rounded-lg border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition text-sm dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+                        +
+                      </button>
+                    </div>
+                    <span className={`text-xs font-medium px-1.5 py-0.5 rounded shrink-0 ${childAgeBadgeClass(age)}`}>
+                      {age < 2 ? 'Infant' : 'Child'}
+                    </span>
+                    <button type="button" onClick={() => setChildrenAges(prev => prev.filter((_, idx) => idx !== i))}
+                      className="text-gray-400 hover:text-red-500 transition shrink-0 dark:text-gray-600 dark:hover:text-red-400 ml-auto">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                {passengers < 9 && (
+                  <button type="button" onClick={() => setChildrenAges(prev => [...prev, 5])}
+                    className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium transition mt-1 dark:text-brand-400 dark:hover:text-brand-300">
+                    <Plus className="w-3.5 h-3.5" />
+                    Add child
+                  </button>
+                )}
               </div>
             </div>
 
@@ -351,13 +438,20 @@ export default function Search() {
 
         {/* Cheapest total summary */}
         {!loading && results && (
-          <CheapestTotal
-            outboundPrice={(selectedOutbound ?? results.outbound.flights[0])?.price ?? null}
-            inboundPrice={(selectedInbound ?? results.inbound.flights[0])?.price ?? null}
-            currency={results.currency}
-            passengers={passengers}
-            isCustomSelection={!!(selectedOutbound || selectedInbound)}
-          />
+          <>
+            <CheapestTotal
+              outboundPrice={(selectedOutbound ?? results.outbound.flights[0])?.price ?? null}
+              inboundPrice={(selectedInbound ?? results.inbound.flights[0])?.price ?? null}
+              currency={results.currency}
+              passengers={passengers}
+              isCustomSelection={!!(selectedOutbound || selectedInbound)}
+            />
+            {searchedRoute && searchedRoute.infantCount > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 text-center -mt-3">
+                Infant fee not included — Ryanair charges a small fixed fee per infant, not a full seat price.
+              </p>
+            )}
+          </>
         )}
 
         {/* Results */}

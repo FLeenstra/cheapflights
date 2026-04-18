@@ -24,17 +24,17 @@ describe('DateRangePicker', () => {
     render(<DateRangePicker {...baseProps} />)
     const trigger = screen.getByRole('button')
     fireEvent.click(trigger)
-    // DayPicker renders a grid with role="grid"
-    expect(screen.getByRole('grid')).toBeInTheDocument()
+    // DayPicker renders one or two month grids
+    expect(screen.getAllByRole('grid').length).toBeGreaterThan(0)
   })
 
   it('toggles calendar closed on second click', () => {
     render(<DateRangePicker {...baseProps} />)
     const trigger = screen.getByRole('button')
     fireEvent.click(trigger)
-    expect(screen.getByRole('grid')).toBeInTheDocument()
+    expect(screen.getAllByRole('grid').length).toBeGreaterThan(0)
     fireEvent.click(trigger)
-    expect(screen.queryByRole('grid')).not.toBeInTheDocument()
+    expect(screen.queryAllByRole('grid')).toHaveLength(0)
   })
 
   it('shows formatted dates when range is selected', () => {

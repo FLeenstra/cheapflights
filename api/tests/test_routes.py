@@ -389,6 +389,27 @@ def test_delete_route_success(client, db):
     assert db.query(Route).count() == 0
 
 
+def test_delete_route_with_check_logs(client, db):
+    token = _register_and_token(client, "dellog@test.com")
+    save_res = client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "alert_price": 100,
+    }, headers=_auth(token))
+    route_id = uuid.UUID(save_res.json()["id"])
+
+    route = db.query(Route).filter(Route.id == route_id).first()
+    db.add(RouteCheckLog(route_id=route.id, outbound_price=Decimal("30.00"),
+                         inbound_price=Decimal("35.00"), total_price=Decimal("65.00"),
+                         flights_found=True))
+    db.commit()
+
+    res = client.delete(f"/routes/{route_id}", headers=_auth(token))
+    assert res.status_code == 204
+    assert db.query(Route).count() == 0
+    assert db.query(RouteCheckLog).count() == 0
+
+
 def test_delete_route_not_found(client):
     token = _register_and_token(client, "delnf@test.com")
     import uuid
@@ -599,3 +620,79 @@ def test_update_route_requires_auth(client):
         "date_from": "2025-08-01", "date_to": "2025-08-08",
     })
     assert res.status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
+# adults_count + children_ages
+# ---------------------------------------------------------------------------
+
+def test_save_route_with_adults_and_children(client, db):
+    token = _register_and_token(client, "pax@test.com")
+    res = client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "adults_count": 2, "children_ages": [5, 9],
+    }, headers=_auth(token))
+    assert res.status_code == 201
+
+    import json as _json
+    route = db.query(Route).first()
+    assert route.adults_count == 2
+    assert _json.loads(route.children_ages) == [5, 9]
+
+
+def test_save_route_children_ages_stored_in_list_routes(client):
+    token = _register_and_token(client, "paxlist@test.com")
+    client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "adults_count": 2, "children_ages": [3, 7],
+    }, headers=_auth(token))
+
+    res = client.get("/routes/", headers=_auth(token))
+    r = res.json()[0]
+    assert r["adults_count"] == 2
+    assert r["children_ages"] == [3, 7]
+
+
+def test_save_route_derives_adults_count_from_passengers(client, db):
+    """Old clients that only send passengers still get a correct adults_count."""
+    token = _register_and_token(client, "paxcompat@test.com")
+    client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "passengers": 3,
+    }, headers=_auth(token))
+
+    route = db.query(Route).first()
+    assert route.adults_count == 3  # derived from passengers when no adults_count sent
+
+
+def test_save_route_invalid_child_age_rejected(client):
+    token = _register_and_token(client, "badage@test.com")
+    res = client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "children_ages": [16],
+    }, headers=_auth(token))
+    assert res.status_code == 422
+
+
+def test_update_route_stores_children_ages(client, db):
+    token = _register_and_token(client, "updpax@test.com")
+    save_res = client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+    }, headers=_auth(token))
+    route_id = save_res.json()["id"]
+
+    client.put(f"/routes/{route_id}", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "adults_count": 1, "children_ages": [4],
+    }, headers=_auth(token))
+
+    import json as _json
+    route = db.query(Route).first()
+    assert route.adults_count == 1
+    assert _json.loads(route.children_ages) == [4]

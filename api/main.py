@@ -10,7 +10,7 @@ from config import ADMIN_EMAIL
 from database import Base, SessionLocal, engine
 from limiter import limiter
 from models import User
-from routers import admin, auth, flights, routes
+from routers import admin, auth, flights, profile, routes
 
 app = FastAPI(title="El Cheapo API", version="0.1.0")
 
@@ -38,6 +38,7 @@ async def add_security_headers(request: Request, call_next):
 app.include_router(auth.router)
 app.include_router(flights.router)
 app.include_router(routes.router)
+app.include_router(profile.router)
 app.include_router(admin.router)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -57,10 +58,34 @@ def startup():
             "ALTER TABLE routes ADD COLUMN IF NOT EXISTS "
             "passengers INTEGER NOT NULL DEFAULT 1"
         ))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS default_origin VARCHAR(3)"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS travel_adults INTEGER NOT NULL DEFAULT 1"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS travel_children INTEGER NOT NULL DEFAULT 0"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS travel_children_birthdates TEXT NOT NULL DEFAULT '[]'"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS theme_preference VARCHAR(10) NOT NULL DEFAULT 'system'"))
+        conn.execute(text("ALTER TABLE routes ADD COLUMN IF NOT EXISTS adults_count INTEGER"))
+        conn.execute(text("ALTER TABLE routes ADD COLUMN IF NOT EXISTS children_ages TEXT NOT NULL DEFAULT '[]'"))
+        conn.execute(text("UPDATE routes SET adults_count = passengers WHERE adults_count IS NULL"))
+        conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS account_deletion_tokens ("
+            "id UUID PRIMARY KEY DEFAULT gen_random_uuid(), "
+            "user_id UUID NOT NULL REFERENCES users(id), "
+            "token VARCHAR(64) UNIQUE NOT NULL, "
+            "expires_at TIMESTAMPTZ NOT NULL, "
+            "used BOOLEAN NOT NULL DEFAULT FALSE, "
+            "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"
+        ))
+        conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
     db = SessionLocal()
     try:
-        if not db.query(User).filter(User.email == ADMIN_EMAIL).first():
-            db.add(User(email=ADMIN_EMAIL, password_hash=pwd_context.hash(ADMIN_PASSWORD)))
+        admin = db.query(User).filter(User.email == ADMIN_EMAIL).first()
+        if not admin:
+            db.add(User(email=ADMIN_EMAIL, password_hash=pwd_context.hash(ADMIN_PASSWORD), is_admin=True))
+            db.commit()
+        elif not admin.is_admin:
+            admin.is_admin = True
             db.commit()
     finally:
         db.close()

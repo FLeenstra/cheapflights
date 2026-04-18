@@ -11,11 +11,28 @@ interface SavedRoute {
   date_from: string
   date_to: string
   passengers: number
+  adults_count: number | null
+  children_ages: number[]
   alert_price: number | null
   notify_available: boolean
   is_active: boolean
   created_at: string
   goal_reached_at: string | null
+}
+
+function paxSummary(route: SavedRoute): string {
+  const adults = route.adults_count ?? route.passengers
+  const children = route.children_ages ?? []
+  if (adults === 1 && children.length === 0) return ''
+  const parts = [`${adults} adult${adults !== 1 ? 's' : ''}`]
+  const n = children.length
+  if (n === 1) {
+    const age = children[0]
+    parts.push(`1 ${age < 2 ? 'infant' : 'child'} (age ${age})`)
+  } else if (n > 1) {
+    parts.push(`${n} children (ages ${children.join(', ')})`)
+  }
+  return parts.join(', ')
 }
 
 type SortKey = 'newest' | 'oldest' | 'origin' | 'destination' | 'departure'
@@ -66,6 +83,8 @@ export default function SavedSearches() {
           dateFrom: new Date(route.date_from + 'T12:00:00'),
           dateTo: new Date(route.date_to + 'T12:00:00'),
           passengers: route.passengers,
+          adultsCount: route.adults_count ?? route.passengers,
+          childrenAges: route.children_ages ?? [],
         },
       },
     })
@@ -84,6 +103,8 @@ export default function SavedSearches() {
           dateFrom: new Date(route.date_from + 'T12:00:00'),
           dateTo: new Date(route.date_to + 'T12:00:00'),
           passengers: route.passengers,
+          adultsCount: route.adults_count ?? route.passengers,
+          childrenAges: route.children_ages ?? [],
           alertPrice: route.alert_price?.toString() ?? '',
           notifyAvailable: route.notify_available,
         },
@@ -238,8 +259,8 @@ export default function SavedSearches() {
                       </div>
                       <div className="text-sm text-gray-500 mt-0.5 dark:text-gray-400">
                         {route.date_from} — {route.date_to}
-                        {route.passengers > 1 && (
-                          <span className="ml-2 text-gray-400 dark:text-gray-600">· {route.passengers} passengers</span>
+                        {paxSummary(route) && (
+                          <span className="ml-2 text-gray-400 dark:text-gray-600">· {paxSummary(route)}</span>
                         )}
                       </div>
                     </button>

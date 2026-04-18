@@ -15,7 +15,8 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 - **Alert options** — set a max group price alert, an availability alert (notify when any flight appears), or both when saving a search
 - **Hourly route checker** — background scheduler checks every active route with an alert, logs results, and deactivates the route once its goal is met
 - **Goal reached indicator** — saved searches show a green "Goal reached" banner with the exact timestamp when a price or availability goal was first met
-- **Admin panel** — site admin can view all users (sorted by active searches), browse scheduler logs grouped by run, and manually trigger the route checker
+- **User profile** — set a default departure airport and travel group (adults + children) to pre-fill the search form; choose light, dark, or device-matched theme
+- **Admin panel** — admins can view all users, browse scheduler logs grouped by run, manually trigger the route checker, and promote/demote other users to admin; admin accounts cannot be deleted
 - **Fully containerised** — one `docker compose up` gets you a running stack
 
 ---
@@ -134,6 +135,8 @@ Password-reset emails and goal-reached alert emails are caught by **Mailpit** �
 | `GET` | `/auth/me` | — | Return `{ "id", "email", "is_admin" }` for the authenticated user |
 | `POST` | `/auth/forgot-password` | `{ "email": "..." }` | Send a password-reset link (always returns 200). **Rate limited: 5 requests/minute per IP** |
 | `POST` | `/auth/reset-password` | `{ "token": "...", "password": "..." }` | Set a new password using a reset token |
+| `POST` | `/auth/request-delete-account` | — | Send an account-deletion confirmation email (requires auth) |
+| `DELETE` | `/auth/delete-account?token=...` | — | Permanently delete the account and all data using the token from the email |
 
 Password rules: minimum 8 characters, maximum 128 characters.
 
@@ -156,13 +159,15 @@ All routes endpoints require authentication. The browser sends the httpOnly cook
   "destination": "BCN",
   "date_from": "2025-08-01",
   "date_to": "2025-08-08",
-  "passengers": 2,
+  "passengers": 3,
+  "adults_count": 2,
+  "children_ages": [7],
   "alert_price": 98,
   "notify_available": false
 }
 ```
 
-`passengers` is optional (default `1`, max `9`). All price totals and alert thresholds are calculated for the full group.
+`passengers` is optional (default `1`, max `9`) — total group size. For proper per-category booking links and readable alert emails, also send `adults_count` (int) and `children_ages` (list of ages 0–15). Old clients that only send `passengers` continue to work; `adults_count` is derived automatically. All price totals and alert thresholds are calculated for the full group.
 
 `alert_price` is optional. When provided it must be a whole number (integer, no decimals) and represents the **maximum combined group total** (outbound + inbound × number of passengers).
 
@@ -239,15 +244,39 @@ GET /flights/search?origin=DUB&destination=BCN&date_from=2025-08-01&date_to=2025
 }
 ```
 
+### Profile
+
+Both endpoints require authentication.
+
+| Method | Path | Body | Description |
+|---|---|---|---|
+| `GET` | `/profile/` | — | Return the current user's profile defaults |
+| `PUT` | `/profile/` | see below | Update profile defaults |
+
+#### Profile body
+
+```json
+{
+  "default_origin": "DUB",
+  "travel_adults": 2,
+  "travel_children_birthdates": ["2018-05-01"],
+  "theme_preference": "dark"
+}
+```
+
+All fields optional (omitted fields reset to defaults). `default_origin` must be a valid 3-letter IATA code or `null`. `travel_adults` 1–9 (default 1). `travel_children_birthdates` is a list of `YYYY-MM-DD` strings (max 8, no future dates); ages are derived from birthdates and used to determine infant/child/adult category. Total adults + children ≤ 9. `theme_preference` must be `"light"`, `"dark"`, or `"system"`.
+
 ### Admin
 
-All endpoints require the authenticated user to be the admin (email matches `ADMIN_EMAIL`).
+All endpoints require the authenticated user to have `is_admin = true`. The primary admin (email matches `ADMIN_EMAIL`) is granted `is_admin` on startup; additional admins can be granted via the panel.
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/admin/users` | List all users with email, join date, and saved-search count |
+| `GET` | `/admin/users` | List all users with email, join date, saved-search count, and `is_admin` flag |
 | `GET` | `/admin/logs` | Last 200 scheduler check logs with route info, prices, and goal flags |
 | `POST` | `/admin/run-check` | Trigger the hourly scheduler job immediately; returns `{ "routes_checked": N }` |
+| `PUT` | `/admin/users/{id}/make-admin` | Grant admin to a user |
+| `DELETE` | `/admin/users/{id}/make-admin` | Revoke admin from a user (primary admin is protected) |
 
 ### Health
 
@@ -269,7 +298,7 @@ docker compose run --rm test pytest tests/ -v --cov=. --cov-report=term-missing
 
 The test suite uses an in-memory SQLite database for full isolation. All Ryanair API calls are mocked — no network access required.
 
-Current coverage: **99%** across all source files (170 tests; `routers/routes.py` and `models.py` at 100%).
+Current coverage: **99%** across all source files (191 tests; `routers/routes.py`, `models.py`, and `routers/profile.py` at 100%).
 
 ### Frontend (vitest)
 
@@ -296,6 +325,7 @@ cheapflights/
 │   │   ├── admin.py         # GET /admin/users, GET /admin/logs, POST /admin/run-check
 │   │   ├── auth.py          # register, login, logout, me, forgot-password, reset-password + JWT dependency
 │   │   ├── flights.py       # GET /flights/search + Ryanair API logic
+│   │   ├── profile.py       # GET/PUT /profile/
 │   │   └── routes.py        # GET/POST/PUT/DELETE /routes/
 │   ├── tests/
 │   │   ├── conftest.py      # SQLite test client + fixtures
@@ -305,14 +335,15 @@ cheapflights/
 │   │   ├── test_flights.py
 │   │   ├── test_health.py
 │   │   ├── test_models.py
+│   │   ├── test_profile.py
 │   │   ├── test_routes.py
 │   │   └── test_scheduler.py
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx          # Router (Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Admin)
-│   │   ├── pages/           # Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Admin
+│   │   ├── App.tsx          # Router (Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Profile, Admin)
+│   │   ├── pages/           # Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Profile, Admin
 │   │   ├── components/      # Navbar, AirportInput, DateRangePicker, FlightList, PriceSuggestions
 │   │   └── data/
 │   │       └── airports.ts  # IATA code database
@@ -342,7 +373,7 @@ Every hour APScheduler runs `check_routes()`, which:
 2. For each route, fetches the cheapest outbound and inbound price from Ryanair.
 3. Evaluates whether the price goal (total ≤ `alert_price`) and/or availability goal (any outbound flight exists) are met.
 4. Writes a `RouteCheckLog` row recording the prices found, goal flags, and any error.
-5. If a goal is met, sets `route.is_active = False` so the route is skipped on all future runs, and sends a styled HTML alert email to the user.
+5. If a goal is met, sets `route.is_active = False` so the route is skipped on all future runs, and sends a styled HTML alert email to the user with a "Book on Ryanair" button pre-filled with the correct passenger breakdown.
 6. After the check loop, `expire_routes()` runs: any active route whose departure date has now passed without its goal being met is deleted from the database, and the user receives a "sorry" email explaining that no matching flight was found in time.
 
 The saved searches page reflects the goal status: once a goal is reached the card shows a green "Goal reached · \<date\>" banner and the search is no longer checked.
@@ -358,12 +389,13 @@ The saved searches page reflects the goal status: once a goal is reached the car
 - [x] Hourly background scheduler checks routes and logs results to `route_check_logs`
 - [x] Route auto-deactivated when its goal is reached (stops being checked)
 - [x] Saved searches show "Goal reached" banner with timestamp
-- [x] Admin panel — users list (sorted by searches), scheduler logs grouped by run, manual trigger
+- [x] Admin panel — users list (sorted by searches), scheduler logs grouped by run, manual trigger, promote/demote admin
 - [x] Alert emails — styled HTML email sent to the user when a price or availability goal is reached
 - [x] Return-trip total in the main results view (cheapest outbound + return, shown between the search form and results)
 - [x] Multi-passenger support — search, book, and track prices for up to 9 passengers; group totals shown throughout
 - [x] Route-aware destination autocomplete — only destinations Ryanair actually flies from the selected origin are shown (24 h cached)
-- [ ] Support for multi-month searches
+- [x] User profile — default departure airport, travel group (adults + children), and light/dark/system theme preference
+- [x] Account deletion — delete account from profile page; confirmation email sent with a one-hour token link
 - [ ] Other airlines beyond Ryanair
 
 
