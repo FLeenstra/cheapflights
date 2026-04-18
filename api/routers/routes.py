@@ -240,6 +240,7 @@ def delete_route(
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
 
+    db.query(RouteCheckLog).filter(RouteCheckLog.route_id == route.id).delete()
     db.delete(route)
     db.commit()
     return Response(status_code=204)

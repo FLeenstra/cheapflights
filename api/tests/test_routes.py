@@ -389,6 +389,27 @@ def test_delete_route_success(client, db):
     assert db.query(Route).count() == 0
 
 
+def test_delete_route_with_check_logs(client, db):
+    token = _register_and_token(client, "dellog@test.com")
+    save_res = client.post("/routes/", json={
+        "origin": "DUB", "destination": "BCN",
+        "date_from": "2025-08-01", "date_to": "2025-08-08",
+        "alert_price": 100,
+    }, headers=_auth(token))
+    route_id = uuid.UUID(save_res.json()["id"])
+
+    route = db.query(Route).filter(Route.id == route_id).first()
+    db.add(RouteCheckLog(route_id=route.id, outbound_price=Decimal("30.00"),
+                         inbound_price=Decimal("35.00"), total_price=Decimal("65.00"),
+                         flights_found=True))
+    db.commit()
+
+    res = client.delete(f"/routes/{route_id}", headers=_auth(token))
+    assert res.status_code == 204
+    assert db.query(Route).count() == 0
+    assert db.query(RouteCheckLog).count() == 0
+
+
 def test_delete_route_not_found(client):
     token = _register_and_token(client, "delnf@test.com")
     import uuid

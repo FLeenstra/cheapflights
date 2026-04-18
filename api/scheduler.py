@@ -219,6 +219,9 @@ def _send_alert_email(
         )
         goal_lines_text += "Availability goal reached — outbound flights are now on sale.\n"
 
+    # Ryanair search URL for the full route (always included so passenger params are present)
+    ryanair_search_url = _ryanair_url(origin, destination, date_from, date_to, adults=adults_count, children_ages=_children)
+
     # Flight tables
     flights_html = ""
     flights_text = ""
@@ -292,13 +295,19 @@ def _send_alert_email(
 
               {flights_html}
 
-              <!-- CTA button -->
+              <!-- CTA buttons -->
               <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 <tr>
-                  <td style="background-color:#2563eb;border-radius:10px;">
-                    <a href="{frontend_url}"
+                  <td style="background-color:#2563eb;border-radius:10px;padding-right:12px;">
+                    <a href="{ryanair_search_url}"
                        style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
-                      Search flights now
+                      Book on Ryanair
+                    </a>
+                  </td>
+                  <td style="background-color:#e2e8f0;border-radius:10px;">
+                    <a href="{frontend_url}"
+                       style="display:inline-block;padding:14px 32px;color:#1e40af;font-size:15px;font-weight:600;text-decoration:none;">
+                      Search El Cheapo
                     </a>
                   </td>
                 </tr>

@@ -189,3 +189,48 @@ describe('Search — profile pre-fill', () => {
     expect(screen.getByText('7')).toBeInTheDocument()
   })
 })
+
+// ---------------------------------------------------------------------------
+// runSearch pre-fill (from saved-search card click)
+// ---------------------------------------------------------------------------
+
+const _runOrigin = { iata: 'DUB', name: 'Dublin Airport', city: 'Dublin', country: 'Ireland' }
+const _runDest   = { iata: 'BCN', name: 'Barcelona Airport', city: 'Barcelona', country: 'Spain' }
+
+function renderWithRunSearch(adultsCount: number, childrenAges: number[]) {
+  vi.spyOn(global, 'fetch').mockImplementation((url) => {
+    const path = url.toString()
+    if (path.includes('/flights/search'))
+      return Promise.resolve({ ok: true, json: async () => ({ outbound: { flights: [], error: null }, inbound: { flights: [], error: null }, suggestions: [], currency: 'EUR' }) } as Response)
+    if (path.includes('/flights/routes'))
+      return Promise.resolve({ ok: true, json: async () => ({ destinations: [] }) } as Response)
+    return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
+  })
+  return render(
+    <MemoryRouter initialEntries={[{ pathname: '/search', state: { runSearch: { origin: _runOrigin, destination: _runDest, dateFrom: new Date('2025-08-01T12:00:00'), dateTo: new Date('2025-08-08T12:00:00'), passengers: adultsCount + childrenAges.length, adultsCount, childrenAges } } }]}>
+      <Search />
+    </MemoryRouter>
+  )
+}
+
+describe('Search — runSearch pre-fill', () => {
+  it('restores adults count from runSearch state', async () => {
+    renderWithRunSearch(2, [])
+    await waitFor(() => expect(screen.getByText('Adults')).toBeInTheDocument())
+    const adultsRow = screen.getByText('Adults').closest('div')!
+    expect(within(adultsRow).getByText('2')).toBeInTheDocument()
+  })
+
+  it('restores children from runSearch state', async () => {
+    renderWithRunSearch(2, [7])
+    await waitFor(() => expect(screen.getByText('Child 1')).toBeInTheDocument())
+    const childRow = screen.getByText('Child 1').parentElement!
+    expect(within(childRow).getByText('7')).toBeInTheDocument()
+  })
+
+  it('does not show children when runSearch has none', async () => {
+    renderWithRunSearch(2, [])
+    await waitFor(() => expect(screen.getByText('Adults')).toBeInTheDocument())
+    expect(screen.queryByText('Child 1')).not.toBeInTheDocument()
+  })
+})

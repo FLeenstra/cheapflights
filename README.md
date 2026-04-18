@@ -369,7 +369,7 @@ Every hour APScheduler runs `check_routes()`, which:
 2. For each route, fetches the cheapest outbound and inbound price from Ryanair.
 3. Evaluates whether the price goal (total ≤ `alert_price`) and/or availability goal (any outbound flight exists) are met.
 4. Writes a `RouteCheckLog` row recording the prices found, goal flags, and any error.
-5. If a goal is met, sets `route.is_active = False` so the route is skipped on all future runs, and sends a styled HTML alert email to the user.
+5. If a goal is met, sets `route.is_active = False` so the route is skipped on all future runs, and sends a styled HTML alert email to the user with a "Book on Ryanair" button pre-filled with the correct passenger breakdown.
 6. After the check loop, `expire_routes()` runs: any active route whose departure date has now passed without its goal being met is deleted from the database, and the user receives a "sorry" email explaining that no matching flight was found in time.
 
 The saved searches page reflects the goal status: once a goal is reached the card shows a green "Goal reached · \<date\>" banner and the search is no longer checked.
