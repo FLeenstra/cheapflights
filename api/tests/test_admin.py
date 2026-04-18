@@ -309,6 +309,25 @@ def test_make_admin_unknown_user_returns_404(client):
     assert res.status_code == 404
 
 
+def test_revoke_last_admin_blocked(client, db):
+    """Cannot revoke the only remaining admin account."""
+    admin_token = _admin_token(client)
+    _register(client, "solo@test.com")
+    solo_uid = _get_user_id(client, admin_token, "solo@test.com")
+    client.put(f"/admin/users/{solo_uid}/make-admin", headers=_auth(admin_token))
+
+    # Strip is_admin from the primary admin directly so solo is the only admin
+    import uuid as uuid_module
+    primary = db.query(User).filter(User.email == "admin@elcheeapo.com").first()
+    primary.is_admin = False
+    db.commit()
+
+    solo_token = client.post("/auth/login", json={"email": "solo@test.com", "password": "Secret1!"}).json()["access_token"]
+    res = client.delete(f"/admin/users/{solo_uid}/make-admin", headers=_auth(solo_token))
+    assert res.status_code == 403
+    assert "last admin" in res.json()["detail"].lower()
+
+
 # ---------------------------------------------------------------------------
 # Admin cannot delete their own account
 # ---------------------------------------------------------------------------

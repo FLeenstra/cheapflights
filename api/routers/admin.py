@@ -156,6 +156,9 @@ def revoke_admin(
         raise HTTPException(status_code=404, detail="User not found")
     if user.email == ADMIN_EMAIL:
         raise HTTPException(status_code=403, detail="Cannot revoke admin from the primary admin account")
+    admin_count = db.query(func.count(User.id)).filter(User.is_admin == True).scalar()  # noqa: E712
+    if admin_count <= 1:
+        raise HTTPException(status_code=403, detail="Cannot revoke the last admin account")
     user.is_admin = False
     db.commit()
     return {"message": f"{user.email} is no longer an admin"}

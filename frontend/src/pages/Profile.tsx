@@ -43,20 +43,22 @@ export default function Profile() {
   const [deleteRequesting, setDeleteRequesting] = useState(false)
   const [deleteRequested, setDeleteRequested] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
-    fetch('/api/profile/', { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null)
-      .then((data: ProfileData | null) => {
-        if (!data) return
-        setDefaultOrigin(data.default_origin ? (airports.find(a => a.iata === data.default_origin) ?? null) : null)
-        setTravelAdults(data.travel_adults)
-        setChildrenBirthdates(data.travel_children_birthdates ?? [])
-        setTheme(data.theme_preference)
-        setPreference(data.theme_preference)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    Promise.all([
+      fetch('/api/profile/', { credentials: 'include' }).then(r => r.ok ? r.json() : null),
+      fetch('/api/auth/me', { credentials: 'include' }).then(r => r.ok ? r.json() : null),
+    ]).then(([profile, me]: [ProfileData | null, { is_admin: boolean } | null]) => {
+      if (profile) {
+        setDefaultOrigin(profile.default_origin ? (airports.find(a => a.iata === profile.default_origin) ?? null) : null)
+        setTravelAdults(profile.travel_adults)
+        setChildrenBirthdates(profile.travel_children_birthdates ?? [])
+        setTheme(profile.theme_preference)
+        setPreference(profile.theme_preference)
+      }
+      if (me) setIsAdmin(me.is_admin)
+    }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
   function handleThemeSelect(pref: ThemePreference) {
@@ -307,7 +309,11 @@ export default function Profile() {
               <p className="text-xs text-gray-400 mb-4 dark:text-gray-500">
                 Permanently delete your account and all associated data. This cannot be undone.
               </p>
-              {deleteRequested ? (
+              {isAdmin ? (
+                <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm rounded-xl px-4 py-3 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400">
+                  Admin accounts cannot be deleted. Revoke your admin rights in the admin panel first.
+                </div>
+              ) : deleteRequested ? (
                 <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
                   Check your email for a confirmation link to complete the deletion.
                 </div>
