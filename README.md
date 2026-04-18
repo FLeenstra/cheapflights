@@ -135,6 +135,8 @@ Password-reset emails and goal-reached alert emails are caught by **Mailpit** �
 | `GET` | `/auth/me` | — | Return `{ "id", "email", "is_admin" }` for the authenticated user |
 | `POST` | `/auth/forgot-password` | `{ "email": "..." }` | Send a password-reset link (always returns 200). **Rate limited: 5 requests/minute per IP** |
 | `POST` | `/auth/reset-password` | `{ "token": "...", "password": "..." }` | Set a new password using a reset token |
+| `POST` | `/auth/request-delete-account` | — | Send an account-deletion confirmation email (requires auth) |
+| `DELETE` | `/auth/delete-account?token=...` | — | Permanently delete the account and all data using the token from the email |
 
 Password rules: minimum 8 characters, maximum 128 characters.
 
@@ -391,6 +393,7 @@ The saved searches page reflects the goal status: once a goal is reached the car
 - [x] Multi-passenger support — search, book, and track prices for up to 9 passengers; group totals shown throughout
 - [x] Route-aware destination autocomplete — only destinations Ryanair actually flies from the selected origin are shown (24 h cached)
 - [x] User profile — default departure airport, travel group (adults + children), and light/dark/system theme preference
+- [x] Account deletion — delete account from profile page; confirmation email sent with a one-hour token link
 - [ ] Support for multi-month searches
 - [ ] Other airlines beyond Ryanair
 

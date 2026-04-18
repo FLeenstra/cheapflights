@@ -1,10 +1,12 @@
 import { Plane } from 'lucide-react'
 import { FormEvent, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { sanitizeEmail, sanitizeText } from '../lib/sanitize'
 
 export default function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const accountDeleted = (location.state as { accountDeleted?: boolean } | null)?.accountDeleted ?? false
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -80,6 +82,12 @@ export default function Login() {
 
           <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">Welcome back</h2>
           <p className="text-gray-500 mb-8 dark:text-gray-400">Sign in to your account to continue</p>
+
+          {accountDeleted && (
+            <div className="mb-6 bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
+              Your account has been permanently deleted. Sorry to see you go.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>

@@ -66,6 +66,15 @@ def startup():
         conn.execute(text("ALTER TABLE routes ADD COLUMN IF NOT EXISTS adults_count INTEGER"))
         conn.execute(text("ALTER TABLE routes ADD COLUMN IF NOT EXISTS children_ages TEXT NOT NULL DEFAULT '[]'"))
         conn.execute(text("UPDATE routes SET adults_count = passengers WHERE adults_count IS NULL"))
+        conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS account_deletion_tokens ("
+            "id UUID PRIMARY KEY DEFAULT gen_random_uuid(), "
+            "user_id UUID NOT NULL REFERENCES users(id), "
+            "token VARCHAR(64) UNIQUE NOT NULL, "
+            "expires_at TIMESTAMPTZ NOT NULL, "
+            "used BOOLEAN NOT NULL DEFAULT FALSE, "
+            "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"
+        ))
     db = SessionLocal()
     try:
         if not db.query(User).filter(User.email == ADMIN_EMAIL).first():

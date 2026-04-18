@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from config import ADMIN_EMAIL
 from database import get_db
 from limiter import limiter
-from models import PasswordResetToken, User
+from models import AccountDeletionToken, PasswordResetToken, Route, RouteCheckLog, User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -338,3 +338,184 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Password updated successfully"}
+
+
+def _send_delete_confirmation_email(to_email: str, confirm_url: str) -> None:
+    host = os.getenv("SMTP_HOST")
+    if not host:
+        print(f"[account deletion] {confirm_url}", flush=True)
+        return
+
+    port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_password = os.getenv("SMTP_PASSWORD", "")
+    from_addr = os.getenv("SMTP_FROM", smtp_user)
+
+    msg = EmailMessage()
+    msg["Subject"] = "Confirm your El Cheapo account deletion"
+    msg["From"] = from_addr
+    msg["To"] = to_email
+
+    msg.set_content(
+        f"Hi,\n\n"
+        f"We received a request to permanently delete your El Cheapo account and all associated data.\n\n"
+        f"Click the link below to confirm (valid for 1 hour):\n\n"
+        f"{confirm_url}\n\n"
+        f"If you didn't request this, you can safely ignore this email — your account will not be deleted.\n\n"
+        f"— El Cheapo\n"
+    )
+
+    msg.add_alternative(f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Confirm account deletion</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="520" cellpadding="0" cellspacing="0">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#991b1b;border-radius:16px 16px 0 0;padding:36px 40px 32px;">
+              <table cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background-color:#7f1d1d;border-radius:10px;padding:8px 10px;vertical-align:middle;">
+                    <span style="font-size:20px;line-height:1;">&#9992;&#65039;</span>
+                  </td>
+                  <td style="padding-left:12px;vertical-align:middle;">
+                    <span style="color:#ffffff;font-size:20px;font-weight:700;">El Cheapo</span>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2;">
+                Confirm account deletion
+              </p>
+              <p style="margin:8px 0 0;color:#fecaca;font-size:15px;line-height:1.5;">
+                This action is permanent and cannot be undone.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="background-color:#ffffff;padding:36px 40px;">
+              <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
+                We received a request to permanently delete your El Cheapo account (<strong>{to_email}</strong>) and all associated data, including your saved searches and alert history.
+              </p>
+              <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+                Click the button below to confirm. This link is valid for <strong>1 hour</strong> and can only be used once.
+              </p>
+
+              <!-- CTA button -->
+              <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  <td style="background-color:#dc2626;border-radius:10px;">
+                    <a href="{confirm_url}"
+                       style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
+                      Delete my account
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Fallback URL -->
+              <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">
+                If the button doesn't work, copy and paste this link into your browser:
+              </p>
+              <p style="margin:0 0 28px;word-break:break-all;">
+                <a href="{confirm_url}" style="color:#dc2626;font-size:13px;text-decoration:none;">{confirm_url}</a>
+              </p>
+
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
+
+              <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
+                If you didn't request account deletion, you can safely ignore this email — your account will remain active.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f8fafc;border-radius:0 0 16px 16px;border-top:1px solid #e5e7eb;padding:20px 40px;">
+              <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">
+                &#169; El Cheapo &middot; Sent to {to_email}
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>""", subtype="html")
+
+    try:
+        with smtplib.SMTP(host, port) as smtp:
+            if smtp_user:
+                smtp.starttls()
+                smtp.login(smtp_user, smtp_password)
+            smtp.send_message(msg)
+    except Exception as exc:
+        print(f"[account deletion] Failed to send email: {exc}", flush=True)
+        print(f"[account deletion] Confirm URL: {confirm_url}", flush=True)
+
+
+@router.post("/request-delete-account", status_code=200)
+def request_delete_account(
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Invalidate any existing unused deletion tokens for this user
+    db.query(AccountDeletionToken).filter(
+        AccountDeletionToken.user_id == current_user.id,
+        AccountDeletionToken.used == False,  # noqa: E712
+    ).update({"used": True})
+
+    token = secrets.token_urlsafe(32)
+    db.add(AccountDeletionToken(
+        user_id=current_user.id,
+        token=token,
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    ))
+    db.commit()
+
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    _send_delete_confirmation_email(current_user.email, f"{frontend_url}/delete-account?token={token}")
+
+    return {"message": "A confirmation link has been sent to your email address."}
+
+
+@router.delete("/delete-account", status_code=200)
+def delete_account(token: str, response: Response, db: Session = Depends(get_db)):
+    now = datetime.now(timezone.utc)
+    deletion_token = db.query(AccountDeletionToken).filter(
+        AccountDeletionToken.token == token,
+        AccountDeletionToken.used == False,  # noqa: E712
+        AccountDeletionToken.expires_at > now,
+    ).first()
+
+    if not deletion_token:
+        raise HTTPException(status_code=400, detail="Invalid or expired deletion link")
+
+    user = db.query(User).filter(User.id == deletion_token.user_id).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired deletion link")
+
+    # Cascade: route_check_logs → routes → tokens → user
+    route_ids = [r.id for r in db.query(Route.id).filter(Route.user_id == user.id).all()]
+    if route_ids:
+        db.query(RouteCheckLog).filter(RouteCheckLog.route_id.in_(route_ids)).delete(synchronize_session=False)
+    db.query(Route).filter(Route.user_id == user.id).delete()
+    db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete()
+    db.query(AccountDeletionToken).filter(AccountDeletionToken.user_id == user.id).delete()
+    db.delete(user)
+    db.commit()
+
+    response.delete_cookie(key="access_token", samesite="lax", httponly=True)
+    return {"message": "Your account has been permanently deleted."}

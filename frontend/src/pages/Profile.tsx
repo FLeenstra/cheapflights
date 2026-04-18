@@ -40,6 +40,9 @@ export default function Profile() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [deleteRequesting, setDeleteRequesting] = useState(false)
+  const [deleteRequested, setDeleteRequested] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   useEffect(() => {
     fetch('/api/profile/', { credentials: 'include' })
@@ -75,6 +78,24 @@ export default function Profile() {
     if (travelAdults + childrenBirthdates.length >= 9) return
     setSaveSuccess(false)
     setChildrenBirthdates(prev => [...prev, ''])
+  }
+
+  async function handleRequestDelete() {
+    setDeleteRequesting(true)
+    setDeleteError('')
+    try {
+      const res = await fetch('/api/auth/request-delete-account', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail ?? 'Request failed')
+      setDeleteRequested(true)
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setDeleteRequesting(false)
+    }
   }
 
   async function handleSave() {
@@ -279,6 +300,31 @@ export default function Profile() {
               className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2 dark:focus:ring-offset-gray-950">
               {saving ? 'Saving…' : 'Save profile'}
             </button>
+
+            {/* Danger zone */}
+            <div className="bg-white rounded-2xl border border-red-100 p-6 dark:bg-gray-900 dark:border-red-900/50">
+              <h2 className="text-sm font-semibold text-red-700 mb-1 dark:text-red-400">Danger zone</h2>
+              <p className="text-xs text-gray-400 mb-4 dark:text-gray-500">
+                Permanently delete your account and all associated data. This cannot be undone.
+              </p>
+              {deleteRequested ? (
+                <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
+                  Check your email for a confirmation link to complete the deletion.
+                </div>
+              ) : (
+                <>
+                  {deleteError && (
+                    <div className="mb-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+                      {deleteError}
+                    </div>
+                  )}
+                  <button type="button" onClick={handleRequestDelete} disabled={deleteRequesting}
+                    className="border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold px-5 py-2.5 rounded-xl text-sm transition dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20">
+                    {deleteRequesting ? 'Sending…' : 'Delete account'}
+                  </button>
+                </>
+              )}
+            </div>
 
           </div>
         )}
