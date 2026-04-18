@@ -396,7 +396,6 @@ The saved searches page reflects the goal status: once a goal is reached the car
 - [x] Route-aware destination autocomplete — only destinations Ryanair actually flies from the selected origin are shown (24 h cached)
 - [x] User profile — default departure airport, travel group (adults + children), and light/dark/system theme preference
 - [x] Account deletion — delete account from profile page; confirmation email sent with a one-hour token link
-- [ ] Support for multi-month searches
 - [ ] Other airlines beyond Ryanair
 
 
