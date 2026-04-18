@@ -128,7 +128,10 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <img src="/ryanair.png" alt="Ryanair" className="w-7 h-7 rounded-full shrink-0" />
+                  <div className="flex flex-col items-center gap-0.5 shrink-0">
+                    <img src="/ryanair.png" alt="Ryanair" className="w-7 h-7 rounded-full" />
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-none">Ryanair</span>
+                  </div>
                   {i === 0 && (
                     <span className="text-xs font-bold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full shrink-0 dark:text-brand-400 dark:bg-brand-900/30">
                       Best price

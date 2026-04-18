@@ -262,12 +262,13 @@ def _send_alert_email(
               <!-- CTA buttons -->
               <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 <tr>
-                  <td style="background-color:#2563eb;border-radius:10px;padding-right:12px;">
+                  <td style="background-color:#2563eb;border-radius:10px;">
                     <a href="{ryanair_search_url}"
                        style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
                       Book on Ryanair
                     </a>
                   </td>
+                  <td style="width:12px;"></td>
                   <td style="background-color:#e2e8f0;border-radius:10px;">
                     <a href="{frontend_url}"
                        style="display:inline-block;padding:14px 32px;color:#1e40af;font-size:15px;font-weight:600;text-decoration:none;">
