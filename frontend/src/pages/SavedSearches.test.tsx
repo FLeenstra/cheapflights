@@ -166,9 +166,7 @@ describe('SavedSearches — alert badges', () => {
 
 describe('SavedSearches — delete', () => {
   it('removes route from the list after delete', async () => {
-    vi.spyOn(global, 'fetch')
-      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => [baseRoute] } as Response)
-      .mockResolvedValueOnce({ ok: true, status: 204, json: async () => ({}) } as Response)
+    mockFetchRoutes()
     renderSavedSearches()
     await waitFor(() => expect(screen.getByText('DUB')).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /delete/i }))

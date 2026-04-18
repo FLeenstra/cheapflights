@@ -58,7 +58,7 @@ export default function Search() {
   const [childrenAges, setChildrenAges] = useState<number[]>([])
   const passengers = adults + childrenAges.length
   const [results, setResults] = useState<SearchResults | null>(null)
-  const [searchedRoute, setSearchedRoute] = useState<{ origin: Airport; destination: Airport; dateFrom: string; dateTo: string; passengers: number } | null>(null)
+  const [searchedRoute, setSearchedRoute] = useState<{ origin: Airport; destination: Airport; dateFrom: string; dateTo: string; passengers: number; infantCount: number } | null>(null)
   const [selectedOutbound, setSelectedOutbound] = useState<Flight | null>(null)
   const [selectedInbound, setSelectedInbound] = useState<Flight | null>(null)
   const [loading, setLoading] = useState(false)
@@ -122,7 +122,7 @@ export default function Search() {
     setDateTo(run.dateTo)
     setAdults(runAdults)
     setChildrenAges(runChildren)
-    doSearch(run.origin, run.destination, run.dateFrom, run.dateTo, pax)
+    doSearch(run.origin, run.destination, run.dateFrom, run.dateTo, pax, runChildren)
   // doSearch is stable (no deps change it) — only re-run when state changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state])
@@ -150,7 +150,7 @@ export default function Search() {
     await doSearch(origin, destination, dateFrom, dateTo)
   }
 
-  async function doSearch(org: Airport, dest: Airport, from: Date, to: Date, pax = passengers) {
+  async function doSearch(org: Airport, dest: Airport, from: Date, to: Date, pax = passengers, searchedChildrenAges = childrenAges) {
     setFormError('')
     setResults(null)
     setLoading(true)
@@ -169,7 +169,8 @@ export default function Search() {
       setSelectedInbound(null)
       setDateFrom(from)
       setDateTo(to)
-      setSearchedRoute({ origin: org, destination: dest, dateFrom: toISO(from), dateTo: toISO(to), passengers: pax })
+      const infants = searchedChildrenAges.filter(a => a < 2).length
+      setSearchedRoute({ origin: org, destination: dest, dateFrom: toISO(from), dateTo: toISO(to), passengers: pax, infantCount: infants })
       if (data.outbound.flights.length > 0) setNotifyAvailable(false)
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Something went wrong')
@@ -437,13 +438,20 @@ export default function Search() {
 
         {/* Cheapest total summary */}
         {!loading && results && (
-          <CheapestTotal
-            outboundPrice={(selectedOutbound ?? results.outbound.flights[0])?.price ?? null}
-            inboundPrice={(selectedInbound ?? results.inbound.flights[0])?.price ?? null}
-            currency={results.currency}
-            passengers={passengers}
-            isCustomSelection={!!(selectedOutbound || selectedInbound)}
-          />
+          <>
+            <CheapestTotal
+              outboundPrice={(selectedOutbound ?? results.outbound.flights[0])?.price ?? null}
+              inboundPrice={(selectedInbound ?? results.inbound.flights[0])?.price ?? null}
+              currency={results.currency}
+              passengers={passengers}
+              isCustomSelection={!!(selectedOutbound || selectedInbound)}
+            />
+            {searchedRoute && searchedRoute.infantCount > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 text-center -mt-3">
+                Infant fee not included — Ryanair charges a small fixed fee per infant, not a full seat price.
+              </p>
+            )}
+          </>
         )}
 
         {/* Results */}

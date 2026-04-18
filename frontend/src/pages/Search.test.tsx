@@ -233,4 +233,15 @@ describe('Search — runSearch pre-fill', () => {
     await waitFor(() => expect(screen.getByText('Adults')).toBeInTheDocument())
     expect(screen.queryByText('Child 1')).not.toBeInTheDocument()
   })
+
+  it('shows infant fee note when search includes an infant (age < 2)', async () => {
+    renderWithRunSearch(1, [0])
+    await waitFor(() => expect(screen.getByText(/Infant fee not included/)).toBeInTheDocument())
+  })
+
+  it('does not show infant fee note when no infants in search', async () => {
+    renderWithRunSearch(2, [7])
+    await waitFor(() => expect(screen.getByText('Adults')).toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText(/Infant fee not included/)).not.toBeInTheDocument())
+  })
 })
