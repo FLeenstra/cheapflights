@@ -1,126 +1,97 @@
 import re
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
-import requests
 from fastapi import APIRouter, HTTPException
+from fli.models import (
+    Airport,
+    FlightSearchFilters,
+    FlightSegment,
+    MaxStops,
+    PassengerInfo,
+    SeatType,
+    SortBy,
+    TripType,
+)
+from fli.search import SearchFlights
 
 router = APIRouter(prefix="/flights", tags=["flights"])
 
-_BASE = "https://services-api.ryanair.com"
-_TIMETABLE_URL = _BASE + "/timtbl/3/schedules/{origin}/{destination}/years/{year}/months/{month}"
-_FARES_URL = _BASE + "/farfnd/v4/oneWayFares"
-_ROUTES_URL = "https://www.ryanair.com/api/views/locate/searchWidget/routes/en/airport/{origin}"
-_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; ElCheapo/1.0)"}
 _SUGGESTION_OFFSETS = range(-3, 4)  # -3 to +3 inclusive
-
-_ROUTES_CACHE_TTL = 24 * 3600  # 24 hours
-_routes_cache: dict[str, tuple[list[str], float]] = {}  # iata -> (destinations, timestamp)
+_IATA_RE = re.compile(r"^[A-Z]{3}$")
 
 
-def _time_window(dep_time: str) -> tuple[str, str]:
-    h, m = map(int, dep_time.split(":"))
-    start = max(0, h * 60 + m - 30)
-    end = min(23 * 60 + 59, h * 60 + m + 30)
-    return f"{start // 60:02d}:{start % 60:02d}", f"{end // 60:02d}:{end % 60:02d}"
-
-
-def _get_timetable(origin: str, destination: str, year: int, month: int) -> list[dict]:
-    url = _TIMETABLE_URL.format(origin=origin, destination=destination, year=year, month=month)
+def _get_airport(iata: str) -> Airport | None:
     try:
-        r = requests.get(url, headers=_HEADERS, timeout=10)
-        return r.json().get("days", []) if r.ok else []
-    except Exception:
-        return []
-
-
-def _get_flight_price(origin: str, destination: str, d: date, dep_time: str) -> dict | None:
-    time_from, time_to = _time_window(dep_time)
-    try:
-        r = requests.get(
-            _FARES_URL,
-            params={
-                "departureAirportIataCode": origin,
-                "arrivalAirportIataCode": destination,
-                "outboundDepartureDateFrom": d.isoformat(),
-                "outboundDepartureDateTo": d.isoformat(),
-                "outboundDepartureTimeFrom": time_from,
-                "outboundDepartureTimeTo": time_to,
-                "currency": "EUR",
-            },
-            headers=_HEADERS,
-            timeout=10,
-        )
-        if not r.ok:
-            return None
-        fares = r.json().get("fares", [])
-        if not fares:
-            return None
-        f = fares[0]["outbound"]
-        return {
-            "flight_number": f["flightNumber"],
-            "price": f["price"]["value"],
-            "currency": f["price"]["currencyCode"],
-            "origin": f["departureAirport"]["iataCode"],
-            "origin_full": f["departureAirport"]["name"] + ", " + f["departureAirport"]["countryName"],
-            "destination": f["arrivalAirport"]["iataCode"],
-            "destination_full": f["arrivalAirport"]["name"] + ", " + f["arrivalAirport"]["countryName"],
-            "departure_time": f["departureDate"],
-        }
-    except Exception:
+        return Airport[iata]
+    except KeyError:
         return None
 
 
-def _cheapest_for_date(origin: str, destination: str, d: date) -> float | None:
-    """Single oneWayFares call — returns the cheapest price on a given date."""
-    try:
-        r = requests.get(
-            _FARES_URL,
-            params={
-                "departureAirportIataCode": origin,
-                "arrivalAirportIataCode": destination,
-                "outboundDepartureDateFrom": d.isoformat(),
-                "outboundDepartureDateTo": d.isoformat(),
-                "currency": "EUR",
-            },
-            headers=_HEADERS,
-            timeout=10,
-        )
-        if not r.ok:
-            return None
-        fares = r.json().get("fares", [])
-        return fares[0]["outbound"]["price"]["value"] if fares else None
-    except Exception:
-        return None
+def _make_filters(origin_ap: Airport, destination_ap: Airport, d: date) -> FlightSearchFilters:
+    return FlightSearchFilters(
+        trip_type=TripType.ONE_WAY,
+        passenger_info=PassengerInfo(adults=1),
+        flight_segments=[
+            FlightSegment(
+                departure_airport=[[origin_ap, 0]],
+                arrival_airport=[[destination_ap, 0]],
+                travel_date=d.isoformat(),
+            )
+        ],
+        seat_type=SeatType.ECONOMY,
+        stops=MaxStops.NON_STOP,
+        sort_by=SortBy.CHEAPEST,
+    )
 
 
 def _search_date(origin: str, destination: str, d: date) -> tuple[list, str | None]:
-    """All priced flights for a single specific date."""
-    scheduled_times: list[str] = []
-    for day_entry in _get_timetable(origin, destination, d.year, d.month):
-        if day_entry["day"] == d.day:
-            scheduled_times = [f["departureTime"] for f in day_entry.get("flights", [])]
-            break
+    """All non-stop flights for a specific date, sorted cheapest first."""
+    origin_ap = _get_airport(origin)
+    destination_ap = _get_airport(destination)
+    if origin_ap is None or destination_ap is None:
+        return [], "Airport not supported"
 
-    if not scheduled_times:
+    try:
+        results = SearchFlights().search(_make_filters(origin_ap, destination_ap, d)) or []
+    except Exception:
+        return [], "Failed to fetch flight data"
+
+    if not results:
         return [], None
 
     flights = []
-    with ThreadPoolExecutor(max_workers=min(len(scheduled_times), 10)) as ex:
-        futures = [ex.submit(_get_flight_price, origin, destination, d, t) for t in scheduled_times]
-        for future in as_completed(futures):
-            result = future.result()
-            if result:
-                flights.append(result)
+    for result in results:
+        if not result.legs:
+            continue
+        leg = result.legs[0]
+        flights.append({
+            "flight_number": leg.flight_number,
+            "price": float(result.price),
+            "currency": result.currency or "EUR",
+            "origin": leg.departure_airport.name,
+            "origin_full": leg.departure_airport.value,
+            "destination": leg.arrival_airport.name,
+            "destination_full": leg.arrival_airport.value,
+            "departure_time": leg.departure_datetime.isoformat(),
+            "airline": leg.airline.value if hasattr(leg.airline, "value") else str(leg.airline),
+        })
 
-    if not flights:
-        return [], "Flights are scheduled but pricing is unavailable for this date."
-
-    return sorted(flights, key=lambda f: f["price"]), None
+    return flights, None
 
 
-_IATA_RE = re.compile(r"^[A-Z]{3}$")
+def _cheapest_for_date(origin: str, destination: str, d: date) -> float | None:
+    """Returns the cheapest non-stop price on a given date (per person)."""
+    origin_ap = _get_airport(origin)
+    destination_ap = _get_airport(destination)
+    if origin_ap is None or destination_ap is None:
+        return None
+
+    try:
+        results = SearchFlights().search(_make_filters(origin_ap, destination_ap, d)) or []
+        return float(results[0].price) if results else None
+    except Exception:
+        return None
 
 
 @router.get("/routes/{origin}")
@@ -128,30 +99,8 @@ def get_routes(origin: str):
     origin = origin.strip().upper()
     if not _IATA_RE.match(origin):
         raise HTTPException(status_code=422, detail="origin must be a 3-letter IATA code")
-
-    cached = _routes_cache.get(origin)
-    if cached and time.time() - cached[1] < _ROUTES_CACHE_TTL:
-        return {"destinations": cached[0]}
-
-    try:
-        r = requests.get(
-            _ROUTES_URL.format(origin=origin),
-            headers=_HEADERS,
-            timeout=10,
-        )
-        if not r.ok:
-            raise HTTPException(status_code=502, detail="Failed to fetch routes from Ryanair")
-        destinations = [
-            route["arrivalAirport"]["code"]
-            for route in r.json()
-            if route.get("arrivalAirport", {}).get("code")
-        ]
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=502, detail="Failed to fetch routes from Ryanair")
-
-    _routes_cache[origin] = (destinations, time.time())
+    # Multi-airline: return all known airports so the destination autocomplete is unrestricted
+    destinations = [ap.name for ap in Airport if ap.name != origin]
     return {"destinations": destinations}
 
 
@@ -169,7 +118,6 @@ def search_flights(origin: str, destination: str, date_from: date, date_to: date
     if (date_to - date_from).days > 90:
         raise HTTPException(status_code=400, detail="Date range must not exceed 90 days")
 
-    # Fetch selected-date flights and all suggestion cheapest-prices in parallel
     with ThreadPoolExecutor(max_workers=20) as ex:
         out_future = ex.submit(_search_date, origin, destination, date_from)
         in_future = ex.submit(_search_date, destination, origin, date_to)

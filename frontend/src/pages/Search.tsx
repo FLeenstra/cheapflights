@@ -446,11 +446,6 @@ export default function Search() {
               passengers={passengers}
               isCustomSelection={!!(selectedOutbound || selectedInbound)}
             />
-            {searchedRoute && searchedRoute.infantCount > 0 && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 text-center -mt-3">
-                Infant fee not included — Ryanair charges a small fixed fee per infant, not a full seat price.
-              </p>
-            )}
           </>
         )}
 
@@ -464,7 +459,6 @@ export default function Search() {
               date={searchedRoute.dateFrom}
               outboundDate={searchedRoute.dateFrom}
               inboundDate={searchedRoute.dateTo}
-              passengers={searchedRoute.passengers}
               flights={results.outbound.flights}
               error={results.outbound.error}
               selectedFlight={selectedOutbound}
@@ -478,7 +472,6 @@ export default function Search() {
               date={searchedRoute.dateTo}
               outboundDate={searchedRoute.dateFrom}
               inboundDate={searchedRoute.dateTo}
-              passengers={searchedRoute.passengers}
               flights={results.inbound.flights}
               error={results.inbound.error}
               selectedFlight={selectedInbound}

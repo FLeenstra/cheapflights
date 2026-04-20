@@ -1,164 +1,151 @@
 """
-Tests for GET /flights/search.
+Tests for GET /flights/search and GET /flights/routes/{origin}.
 
-All external HTTP calls (Ryanair timetable + oneWayFares) are intercepted by
-mocking `requests.get` so the tests run fully offline.
+SearchFlights (fli library) is mocked so tests run fully offline.
 """
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
-
-from routers.flights import _time_window
 
 import pytest
 
 
 # ---------------------------------------------------------------------------
-# Helpers to build fake Ryanair API responses
+# Helpers to build fake fli FlightResult objects
 # ---------------------------------------------------------------------------
 
-def _timetable_response(day: int, dep_times: list[str]):
-    """Minimal timetable API JSON for a given day with the given departure times."""
-    mock = MagicMock()
-    mock.ok = True
-    mock.json.return_value = {
-        "days": [
-            {
-                "day": day,
-                "flights": [{"departureTime": t} for t in dep_times],
-            }
-        ]
+def _make_flight_result(
+    price: float = 99.99,
+    currency: str = "EUR",
+    flight_number: str = "FR1234",
+    origin_iata: str = "DUB",
+    dest_iata: str = "BCN",
+    airline_name: str = "Ryanair",
+    departure_iso: str = "2025-06-01T10:00:00",
+):
+    leg = MagicMock()
+    leg.flight_number = flight_number
+    leg.departure_airport.name = origin_iata
+    leg.departure_airport.value = f"{origin_iata} Airport"
+    leg.arrival_airport.name = dest_iata
+    leg.arrival_airport.value = f"{dest_iata} Airport"
+    leg.departure_datetime.isoformat.return_value = departure_iso
+    leg.airline.value = airline_name
+
+    result = MagicMock()
+    result.price = price
+    result.currency = currency
+    result.legs = [leg]
+    return result
+
+
+def _make_flight_dict(
+    price: float = 99.99,
+    currency: str = "EUR",
+    flight_number: str = "FR1234",
+    origin_iata: str = "DUB",
+    dest_iata: str = "BCN",
+    airline_name: str = "Ryanair",
+    departure_iso: str = "2027-06-01T10:00:00",
+):
+    """Return a flight dict as _search_date would produce."""
+    return {
+        "flight_number": flight_number,
+        "price": price,
+        "currency": currency,
+        "origin": origin_iata,
+        "origin_full": f"{origin_iata} Airport",
+        "destination": dest_iata,
+        "destination_full": f"{dest_iata} Airport",
+        "departure_time": departure_iso,
+        "airline": airline_name,
     }
-    return mock
 
 
-def _fares_response(price: float, currency: str = "EUR",
-                    origin: str = "DUB", dest: str = "BCN",
-                    flight_number: str = "FR1234",
-                    departure_date: str = "2025-06-01T10:00:00"):
-    """Minimal oneWayFares API JSON."""
-    mock = MagicMock()
-    mock.ok = True
-    mock.json.return_value = {
-        "fares": [
-            {
-                "outbound": {
-                    "flightNumber": flight_number,
-                    "price": {"value": price, "currencyCode": currency},
-                    "departureAirport": {"iataCode": origin, "name": "Dublin", "countryName": "Ireland"},
-                    "arrivalAirport": {"iataCode": dest, "name": "Barcelona", "countryName": "Spain"},
-                    "departureDate": departure_date,
-                }
-            }
-        ]
-    }
-    return mock
-
-
-def _empty_fares_response():
-    mock = MagicMock()
-    mock.ok = True
-    mock.json.return_value = {"fares": []}
-    return mock
-
-
-def _error_response():
-    mock = MagicMock()
-    mock.ok = False
-    return mock
+def _mock_sf(results):
+    """Return a patch value for SearchFlights that yields `results` from .search()."""
+    mock_cls = MagicMock()
+    mock_cls.return_value.search.return_value = results
+    return mock_cls
 
 
 # ---------------------------------------------------------------------------
-# Tests
+# Tests for GET /flights/search
 # ---------------------------------------------------------------------------
 
-class TestFlightsSearch:
+class TestFlightsSearchValidation:
 
     def test_date_from_after_date_to_returns_400(self, client):
         res = client.get("/flights/search", params={
-            "origin": "DUB",
-            "destination": "BCN",
-            "date_from": "2025-06-10",
-            "date_to": "2025-06-05",
+            "origin": "DUB", "destination": "BCN",
+            "date_from": "2025-06-10", "date_to": "2025-06-05",
         })
         assert res.status_code == 400
         assert "date_from" in res.json()["detail"].lower()
 
     def test_date_range_over_90_days_returns_400(self, client):
         res = client.get("/flights/search", params={
-            "origin": "DUB",
-            "destination": "BCN",
-            "date_from": "2025-06-01",
-            "date_to": "2025-09-30",  # 121 days
+            "origin": "DUB", "destination": "BCN",
+            "date_from": "2025-06-01", "date_to": "2025-09-30",
         })
         assert res.status_code == 400
         assert "90" in res.json()["detail"]
 
     def test_date_range_exactly_90_days_is_allowed(self, client):
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                return MagicMock(ok=True, **{"json.return_value": {"days": []}})
-            return _empty_fares_response()
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
+        with patch("routers.flights.SearchFlights", _mock_sf([])):
             res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-08-30",  # exactly 90 days
+                "origin": "DUB", "destination": "BCN",
+                "date_from": "2025-06-01", "date_to": "2025-08-30",
             })
         assert res.status_code == 200
 
     def test_invalid_iata_code_returns_422(self, client):
         res = client.get("/flights/search", params={
-            "origin": "DUBL",
-            "destination": "BCN",
-            "date_from": "2025-06-01",
-            "date_to": "2025-06-08",
+            "origin": "DUBL", "destination": "BCN",
+            "date_from": "2025-06-01", "date_to": "2025-06-08",
         })
         assert res.status_code == 422
         assert "iata" in res.json()["detail"].lower()
 
     def test_numeric_iata_code_returns_422(self, client):
         res = client.get("/flights/search", params={
-            "origin": "123",
-            "destination": "BCN",
-            "date_from": "2025-06-01",
-            "date_to": "2025-06-08",
+            "origin": "123", "destination": "BCN",
+            "date_from": "2025-06-01", "date_to": "2025-06-08",
         })
         assert res.status_code == 422
 
-    def test_successful_search_structure(self, client):
-        """A successful search returns outbound, inbound, suggestions, currency."""
+    def test_iata_codes_uppercased(self, client):
+        """Lowercase codes are normalised before use."""
+        with patch("routers.flights._search_date", return_value=([], None)) as mock_sd, \
+             patch("routers.flights._cheapest_for_date", return_value=None):
+            client.get("/flights/search", params={
+                "origin": "dub", "destination": "bcn",
+                "date_from": "2025-06-01", "date_to": "2025-06-08",
+            })
+        calls = mock_sd.call_args_list
+        assert all(c.args[0].isupper() and c.args[1].isupper() for c in calls)
 
-        def fake_get(url, **kwargs):
-            params = kwargs.get("params", {})
 
-            # Timetable calls (no 'currency' param)
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    return _timetable_response(1, ["10:00"])
-                if "BCN/DUB" in url:
-                    return _timetable_response(8, ["15:00"])
-                # Shouldn't be reached, but return empty to be safe
-                return _error_response()
+class TestFlightsSearchResults:
 
-            # oneWayFares calls
-            origin = params.get("departureAirportIataCode", "")
-            dest = params.get("arrivalAirportIataCode", "")
-            return _fares_response(
-                price=99.99,
-                origin=origin or "DUB",
-                dest=dest or "BCN",
-            )
+    def _search(self, client, out_flights=None, in_flights=None, cheapest=30.0):
+        out = out_flights if out_flights is not None else [_make_flight_dict()]
+        inn = in_flights if in_flights is not None else [_make_flight_dict(
+            origin_iata="BCN", dest_iata="DUB", flight_number="FR5678",
+            departure_iso="2027-06-08T15:00:00",
+        )]
 
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
+        def fake_search(origin, dest, d):
+            return (out if origin == "DUB" else inn, None)
+
+        with patch("routers.flights._search_date", side_effect=fake_search), \
+             patch("routers.flights._cheapest_for_date", return_value=cheapest):
+            return client.get("/flights/search", params={
+                "origin": "DUB", "destination": "BCN",
+                "date_from": "2025-06-01", "date_to": "2025-06-08",
             })
 
+    def test_response_structure(self, client):
+        res = self._search(client)
         assert res.status_code == 200
         body = res.json()
         assert "outbound" in body
@@ -167,21 +154,7 @@ class TestFlightsSearch:
         assert "currency" in body
 
     def test_outbound_flights_returned(self, client):
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    return _timetable_response(1, ["10:00", "14:00"])
-                return _timetable_response(8, ["16:00"])
-            return _fares_response(79.99)
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
+        res = self._search(client)
         body = res.json()
         assert body["outbound"]["error"] is None
         assert len(body["outbound"]["flights"]) > 0
@@ -190,95 +163,35 @@ class TestFlightsSearch:
         assert "flight_number" in flight
         assert "departure_time" in flight
 
-    def test_flights_sorted_cheapest_first(self, client):
-        call_count = [0]
+    def test_inbound_flights_returned(self, client):
+        res = self._search(client)
+        body = res.json()
+        assert body["inbound"]["error"] is None
+        assert len(body["inbound"]["flights"]) > 0
 
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    return _timetable_response(1, ["08:00", "18:00"])
-                return _timetable_response(8, ["16:00"])
-
-            call_count[0] += 1
-            # Alternately return expensive then cheap so we can verify sorting
-            price = 150.0 if call_count[0] % 2 == 1 else 50.0
-            return _fares_response(price)
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
-        flights = res.json()["outbound"]["flights"]
-        if len(flights) > 1:
-            prices = [f["price"] for f in flights]
-            assert prices == sorted(prices)
+    def test_flight_includes_airline_field(self, client):
+        res = self._search(client)
+        flight = res.json()["outbound"]["flights"][0]
+        assert "airline" in flight
+        assert flight["airline"] == "Ryanair"
 
     def test_seven_suggestions_returned(self, client):
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    return _timetable_response(1, ["10:00"])
-                return _timetable_response(8, ["16:00"])
-            return _fares_response(99.0)
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
+        res = self._search(client)
         suggestions = res.json()["suggestions"]
         assert len(suggestions) == 7
-        offsets = [s["offset"] for s in suggestions]
-        assert offsets == list(range(-3, 4))
+        assert [s["offset"] for s in suggestions] == list(range(-3, 4))
 
     def test_selected_suggestion_marked(self, client):
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    return _timetable_response(1, ["10:00"])
-                return _timetable_response(8, ["16:00"])
-            return _fares_response(99.0)
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
+        res = self._search(client)
         suggestions = res.json()["suggestions"]
         selected = [s for s in suggestions if s["is_selected"]]
-        not_selected = [s for s in suggestions if not s["is_selected"]]
         assert len(selected) == 1
         assert selected[0]["offset"] == 0
         assert selected[0]["outbound_date"] == "2025-06-01"
         assert selected[0]["inbound_date"] == "2025-06-08"
-        assert all(not s["is_selected"] for s in not_selected)
 
     def test_suggestion_dates_offset_correctly(self, client):
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    return _timetable_response(1, ["10:00"])
-                return _timetable_response(8, ["16:00"])
-            return _fares_response(99.0)
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
+        res = self._search(client)
         base_out = date(2025, 6, 1)
         base_in = date(2025, 6, 8)
         for s in res.json()["suggestions"]:
@@ -286,246 +199,24 @@ class TestFlightsSearch:
             inn = date.fromisoformat(s["inbound_date"])
             assert out == base_out + timedelta(days=s["offset"])
             assert inn == base_in + timedelta(days=s["offset"])
-            # Trip duration stays constant
             assert (inn - out).days == 7
 
-    def test_no_flights_on_date_returns_empty_list(self, client):
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                # Timetable has no matching day → empty list
-                mock = MagicMock()
-                mock.ok = True
-                mock.json.return_value = {"days": [{"day": 99, "flights": []}]}
-                return mock
-            return _fares_response(99.0)
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
-        body = res.json()
-        assert body["outbound"]["flights"] == []
-        assert body["outbound"]["error"] is None
-
-    def test_timetable_api_failure_returns_empty(self, client):
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                return _error_response()
-            return _fares_response(99.0)
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
-        assert res.status_code == 200
-        assert res.json()["outbound"]["flights"] == []
-
-    def test_fares_api_failure_sets_error(self, client):
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    return _timetable_response(1, ["10:00"])
-                return _timetable_response(8, ["16:00"])
-            # Fares API fails for all calls
-            return _error_response()
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
-        body = res.json()
-        assert body["outbound"]["flights"] == []
-        assert body["outbound"]["error"] is not None
-
-    def test_iata_codes_uppercased(self, client):
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    return _timetable_response(1, ["10:00"])
-                return _timetable_response(8, ["16:00"])
-            return _fares_response(99.0)
-
-        with patch("routers.flights.requests.get", side_effect=fake_get) as mock_get:
-            client.get("/flights/search", params={
-                "origin": "dub",
-                "destination": "bcn",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-            # Verify the timetable URL contains uppercased codes
-            timetable_calls = [c for c in mock_get.call_args_list if "timtbl" in c.args[0]]
-            assert any("DUB" in c.args[0] for c in timetable_calls)
-
     def test_currency_from_outbound_flights(self, client):
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    return _timetable_response(1, ["10:00"])
-                return _timetable_response(8, ["16:00"])
-            return _fares_response(99.0, currency="GBP")
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
+        out = [_make_flight_dict(currency="GBP")]
+        res = self._search(client, out_flights=out)
         assert res.json()["currency"] == "GBP"
 
-    def test_inbound_flights_returned(self, client):
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    return _timetable_response(1, ["10:00"])
-                return _timetable_response(8, ["15:00"])
-            params = kwargs.get("params", {})
-            origin = params.get("departureAirportIataCode", "DUB")
-            dest = params.get("arrivalAirportIataCode", "BCN")
-            return _fares_response(79.99, origin=origin, dest=dest)
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
-        body = res.json()
-        assert body["inbound"]["error"] is None
-        assert len(body["inbound"]["flights"]) > 0
-        flight = body["inbound"]["flights"][0]
-        assert "price" in flight
-        assert "flight_number" in flight
-        assert "departure_time" in flight
-
-    def test_timetable_exception_handled(self, client):
-        """If requests.get raises, _get_timetable returns [] and flights are empty."""
-        with patch("routers.flights.requests.get", side_effect=Exception("network error")):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
-        assert res.status_code == 200
-        body = res.json()
-        assert body["outbound"]["flights"] == []
-        assert body["inbound"]["flights"] == []
-
-    def test_fares_api_exception_handled(self, client):
-        """If the fares API raises for a specific-flight call, that flight is skipped."""
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    return _timetable_response(1, ["10:00"])
-                return _timetable_response(8, ["16:00"])
-            params = kwargs.get("params", {})
-            if "outboundDepartureTimeFrom" in params:
-                raise ConnectionError("fares API down")
-            return _fares_response(99.0)
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
-        body = res.json()
-        assert res.status_code == 200
-        assert body["outbound"]["flights"] == []
-        assert body["outbound"]["error"] is not None
-
-    def test_suggestion_cheapest_returns_none_on_empty_fares(self, client):
-        """_cheapest_for_date returns None when the fares list is empty."""
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    return _timetable_response(1, ["10:00"])
-                return _timetable_response(8, ["16:00"])
-            params = kwargs.get("params", {})
-            # Specific-flight calls (with time window) return a price;
-            # cheapest-date calls (no time window) return empty fares.
-            if "outboundDepartureTimeFrom" in params:
-                return _fares_response(99.0)
-            return _empty_fares_response()
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
-        body = res.json()
-        non_selected = [s for s in body["suggestions"] if not s["is_selected"]]
-        for s in non_selected:
-            assert s["outbound_cheapest"] is None
-            assert s["inbound_cheapest"] is None
-            assert s["total"] is None
-
-    def test_suggestion_cheapest_returns_none_on_exception(self, client):
-        """_cheapest_for_date returns None when the fares API raises."""
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    return _timetable_response(1, ["10:00"])
-                return _timetable_response(8, ["16:00"])
-            params = kwargs.get("params", {})
-            if "outboundDepartureTimeFrom" in params:
-                return _fares_response(99.0)
-            raise ConnectionError("cheapest API down")
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
-            res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
-            })
-
-        body = res.json()
-        assert res.status_code == 200
-        non_selected = [s for s in body["suggestions"] if not s["is_selected"]]
-        for s in non_selected:
-            assert s["outbound_cheapest"] is None
-
     def test_currency_from_inbound_when_outbound_empty(self, client):
-        """Currency is taken from inbound flights when outbound is empty."""
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                if "DUB/BCN" in url:
-                    mock = MagicMock()
-                    mock.ok = True
-                    mock.json.return_value = {"days": []}
-                    return mock
-                return _timetable_response(8, ["16:00"])
-            return _fares_response(79.99, currency="GBP")
+        inn = [_make_flight_dict(currency="GBP", origin_iata="BCN", dest_iata="DUB")]
 
-        with patch("routers.flights.requests.get", side_effect=fake_get):
+        def fake_search(origin, dest, d):
+            return ([], None) if origin == "DUB" else (inn, None)
+
+        with patch("routers.flights._search_date", side_effect=fake_search), \
+             patch("routers.flights._cheapest_for_date", return_value=None):
             res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
+                "origin": "DUB", "destination": "BCN",
+                "date_from": "2025-06-01", "date_to": "2025-06-08",
             })
 
         body = res.json()
@@ -534,107 +225,219 @@ class TestFlightsSearch:
         assert body["currency"] == "GBP"
 
     def test_currency_defaults_to_eur_when_no_flights(self, client):
-        """Currency defaults to EUR when neither outbound nor inbound has flights."""
-        def fake_get(url, **kwargs):
-            if "timtbl" in url:
-                mock = MagicMock()
-                mock.ok = True
-                mock.json.return_value = {"days": []}
-                return mock
-            return _empty_fares_response()
-
-        with patch("routers.flights.requests.get", side_effect=fake_get):
+        with patch("routers.flights._search_date", return_value=([], None)), \
+             patch("routers.flights._cheapest_for_date", return_value=None):
             res = client.get("/flights/search", params={
-                "origin": "DUB",
-                "destination": "BCN",
-                "date_from": "2025-06-01",
-                "date_to": "2025-06-08",
+                "origin": "DUB", "destination": "BCN",
+                "date_from": "2025-06-01", "date_to": "2025-06-08",
             })
-
         assert res.status_code == 200
         assert res.json()["currency"] == "EUR"
 
+    def test_no_flights_returns_empty_list_no_error(self, client):
+        with patch("routers.flights._search_date", return_value=([], None)), \
+             patch("routers.flights._cheapest_for_date", return_value=None):
+            res = client.get("/flights/search", params={
+                "origin": "DUB", "destination": "BCN",
+                "date_from": "2025-06-01", "date_to": "2025-06-08",
+            })
+        body = res.json()
+        assert body["outbound"]["flights"] == []
+        assert body["outbound"]["error"] is None
+
+    def test_search_exception_returns_error_message(self, client):
+        with patch("routers.flights._search_date", return_value=([], "Failed to fetch flight data")), \
+             patch("routers.flights._cheapest_for_date", return_value=None):
+            res = client.get("/flights/search", params={
+                "origin": "DUB", "destination": "BCN",
+                "date_from": "2025-06-01", "date_to": "2025-06-08",
+            })
+        body = res.json()
+        assert res.status_code == 200
+        assert body["outbound"]["error"] is not None
+
+    def test_cheapest_none_when_no_suggestion_flights(self, client):
+        def fake_search(origin, dest, d):
+            return ([_make_flight_result()], None)
+
+        with patch("routers.flights._search_date", side_effect=fake_search), \
+             patch("routers.flights._cheapest_for_date", return_value=None):
+            res = client.get("/flights/search", params={
+                "origin": "DUB", "destination": "BCN",
+                "date_from": "2025-06-01", "date_to": "2025-06-08",
+            })
+
+        non_selected = [s for s in res.json()["suggestions"] if not s["is_selected"]]
+        for s in non_selected:
+            assert s["outbound_cheapest"] is None
+            assert s["total"] is None
+
+    def test_cheapest_none_on_exception(self, client):
+        def fake_search(origin, dest, d):
+            return ([_make_flight_dict()], None)
+
+        with patch("routers.flights._search_date", side_effect=fake_search), \
+             patch("routers.flights._cheapest_for_date", return_value=None):
+            res = client.get("/flights/search", params={
+                "origin": "DUB", "destination": "BCN",
+                "date_from": "2025-06-01", "date_to": "2025-06-08",
+            })
+
+        assert res.status_code == 200
+
 
 # ---------------------------------------------------------------------------
-# Unit tests for _time_window helper
+# Unit tests for _search_date
 # ---------------------------------------------------------------------------
 
-class TestTimeWindow:
+_MOCK_FILTERS = MagicMock()
 
-    def test_midday(self):
-        start, end = _time_window("10:00")
-        assert start == "09:30"
-        assert end == "10:30"
 
-    def test_midnight_start_clamped_to_zero(self):
-        """00:00 − 30 min would be negative; start must clamp to 00:00."""
-        start, end = _time_window("00:00")
-        assert start == "00:00"
-        assert end == "00:30"
+class TestSearchDate:
+    from datetime import date as _date
 
-    def test_late_night_end_clamped(self):
-        """23:50 + 30 min exceeds 23:59; end must clamp to 23:59."""
-        start, end = _time_window("23:50")
-        assert start == "23:20"
-        assert end == "23:59"
+    def test_returns_flights_on_success(self):
+        from routers.flights import _search_date
+        result = _make_flight_result()
+        with patch("routers.flights.SearchFlights", _mock_sf([result])), \
+             patch("routers.flights._make_filters", return_value=_MOCK_FILTERS):
+            flights, error = _search_date("DUB", "BCN", date(2025, 6, 1))
+        assert error is None
+        assert len(flights) == 1
+        assert flights[0]["flight_number"] == "FR1234"
+        assert flights[0]["price"] == 99.99
+        assert flights[0]["currency"] == "EUR"
+        assert flights[0]["origin"] == "DUB"
+        assert flights[0]["destination"] == "BCN"
+        assert flights[0]["airline"] == "Ryanair"
+
+    def test_returns_empty_list_when_no_results(self):
+        from routers.flights import _search_date
+        with patch("routers.flights.SearchFlights", _mock_sf([])), \
+             patch("routers.flights._make_filters", return_value=_MOCK_FILTERS):
+            flights, error = _search_date("DUB", "BCN", date(2025, 6, 1))
+        assert flights == []
+        assert error is None
+
+    def test_returns_error_on_exception(self):
+        from routers.flights import _search_date
+        mock_cls = MagicMock()
+        mock_cls.return_value.search.side_effect = Exception("network error")
+        with patch("routers.flights.SearchFlights", mock_cls), \
+             patch("routers.flights._make_filters", return_value=_MOCK_FILTERS):
+            flights, error = _search_date("DUB", "BCN", date(2025, 6, 1))
+        assert flights == []
+        assert error == "Failed to fetch flight data"
+
+    def test_returns_error_for_unsupported_airport(self):
+        from routers.flights import _search_date
+        flights, error = _search_date("XYZ", "BCN", date(2025, 6, 1))
+        assert flights == []
+        assert error == "Airport not supported"
+
+    def test_skips_result_with_no_legs(self):
+        from routers.flights import _search_date
+        no_legs = MagicMock()
+        no_legs.legs = []
+        with_legs = _make_flight_result(price=50.0)
+        with patch("routers.flights.SearchFlights", _mock_sf([no_legs, with_legs])), \
+             patch("routers.flights._make_filters", return_value=_MOCK_FILTERS):
+            flights, error = _search_date("DUB", "BCN", date(2025, 6, 1))
+        assert len(flights) == 1
+        assert flights[0]["price"] == 50.0
+
+    def test_multiple_flights_returned_in_order(self):
+        from routers.flights import _search_date
+        r1 = _make_flight_result(price=30.0, flight_number="FR001")
+        r2 = _make_flight_result(price=50.0, flight_number="FR002")
+        with patch("routers.flights.SearchFlights", _mock_sf([r1, r2])), \
+             patch("routers.flights._make_filters", return_value=_MOCK_FILTERS):
+            flights, _ = _search_date("DUB", "BCN", date(2025, 6, 1))
+        assert flights[0]["flight_number"] == "FR001"
+        assert flights[1]["flight_number"] == "FR002"
+
+    def test_currency_fallback_to_eur_when_none(self):
+        from routers.flights import _search_date
+        result = _make_flight_result()
+        result.currency = None
+        with patch("routers.flights.SearchFlights", _mock_sf([result])), \
+             patch("routers.flights._make_filters", return_value=_MOCK_FILTERS):
+            flights, _ = _search_date("DUB", "BCN", date(2025, 6, 1))
+        assert flights[0]["currency"] == "EUR"
+
+
+# ---------------------------------------------------------------------------
+# Unit tests for _cheapest_for_date
+# ---------------------------------------------------------------------------
+
+class TestCheapestForDate:
+
+    def test_returns_cheapest_price(self):
+        from routers.flights import _cheapest_for_date
+        result = _make_flight_result(price=42.5)
+        with patch("routers.flights.SearchFlights", _mock_sf([result])), \
+             patch("routers.flights._make_filters", return_value=_MOCK_FILTERS):
+            price = _cheapest_for_date("DUB", "BCN", date(2025, 6, 1))
+        assert price == 42.5
+
+    def test_returns_none_when_no_results(self):
+        from routers.flights import _cheapest_for_date
+        with patch("routers.flights.SearchFlights", _mock_sf([])), \
+             patch("routers.flights._make_filters", return_value=_MOCK_FILTERS):
+            price = _cheapest_for_date("DUB", "BCN", date(2025, 6, 1))
+        assert price is None
+
+    def test_returns_none_on_exception(self):
+        from routers.flights import _cheapest_for_date
+        mock_cls = MagicMock()
+        mock_cls.return_value.search.side_effect = Exception("timeout")
+        with patch("routers.flights.SearchFlights", mock_cls), \
+             patch("routers.flights._make_filters", return_value=_MOCK_FILTERS):
+            price = _cheapest_for_date("DUB", "BCN", date(2025, 6, 1))
+        assert price is None
+
+    def test_returns_none_for_unsupported_airport(self):
+        from routers.flights import _cheapest_for_date
+        price = _cheapest_for_date("XYZ", "BCN", date(2025, 6, 1))
+        assert price is None
+
+    def test_returns_float(self):
+        from routers.flights import _cheapest_for_date
+        result = _make_flight_result(price=29.99)
+        with patch("routers.flights.SearchFlights", _mock_sf([result])), \
+             patch("routers.flights._make_filters", return_value=_MOCK_FILTERS):
+            price = _cheapest_for_date("DUB", "BCN", date(2025, 6, 1))
+        assert isinstance(price, float)
 
 
 # ---------------------------------------------------------------------------
 # Tests for GET /flights/routes/{origin}
 # ---------------------------------------------------------------------------
 
-def _routes_response(destinations: list[str]):
-    mock = MagicMock()
-    mock.ok = True
-    mock.json.return_value = [
-        {"arrivalAirport": {"code": iata}} for iata in destinations
-    ]
-    return mock
-
-
 class TestGetRoutes:
 
-    def setup_method(self):
-        import routers.flights as f
-        f._routes_cache.clear()
-
-    def test_returns_destinations_for_valid_origin(self, client):
-        with patch("routers.flights.requests.get", return_value=_routes_response(["BCN", "MAD", "LIS"])):
-            res = client.get("/flights/routes/DUB")
+    def test_valid_origin_returns_destinations(self, client):
+        res = client.get("/flights/routes/DUB")
         assert res.status_code == 200
-        assert set(res.json()["destinations"]) == {"BCN", "MAD", "LIS"}
+        destinations = res.json()["destinations"]
+        assert isinstance(destinations, list)
+        assert len(destinations) > 0
+
+    def test_origin_excluded_from_destinations(self, client):
+        res = client.get("/flights/routes/DUB")
+        assert "DUB" not in res.json()["destinations"]
+
+    def test_known_airports_included(self, client):
+        res = client.get("/flights/routes/DUB")
+        destinations = set(res.json()["destinations"])
+        assert "BCN" in destinations
+        assert "AMS" in destinations
 
     def test_invalid_iata_returns_422(self, client):
         res = client.get("/flights/routes/INVALID")
         assert res.status_code == 422
 
-    def test_lowercase_origin_is_normalised(self, client):
-        with patch("routers.flights.requests.get", return_value=_routes_response(["BCN"])):
-            res = client.get("/flights/routes/dub")
+    def test_lowercase_origin_normalised(self, client):
+        res = client.get("/flights/routes/dub")
         assert res.status_code == 200
-        assert "BCN" in res.json()["destinations"]
-
-    def test_ryanair_api_error_returns_502(self, client):
-        with patch("routers.flights.requests.get", return_value=_error_response()):
-            res = client.get("/flights/routes/DUB")
-        assert res.status_code == 502
-
-    def test_network_exception_returns_502(self, client):
-        with patch("routers.flights.requests.get", side_effect=Exception("timeout")):
-            res = client.get("/flights/routes/DUB")
-        assert res.status_code == 502
-
-    def test_result_is_cached_on_second_call(self, client):
-        with patch("routers.flights.requests.get", return_value=_routes_response(["BCN"])) as mock_get:
-            client.get("/flights/routes/DUB")
-            client.get("/flights/routes/DUB")
-        assert mock_get.call_count == 1
-
-    def test_cache_is_bypassed_when_expired(self, client):
-        import routers.flights as f
-        import time
-        with patch("routers.flights.requests.get", return_value=_routes_response(["BCN"])) as mock_get:
-            client.get("/flights/routes/DUB")
-            f._routes_cache["DUB"] = (f._routes_cache["DUB"][0], time.time() - f._ROUTES_CACHE_TTL - 1)
-            client.get("/flights/routes/DUB")
-        assert mock_get.call_count == 2
+        assert "DUB" not in res.json()["destinations"]

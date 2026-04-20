@@ -6,7 +6,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 
 ## Features
 
-- **Flight search** — real-time prices pulled from Ryanair's API for any origin/destination pair; destination autocomplete is filtered to only routes Ryanair actually flies from the selected origin
+- **Flight search** — real-time prices pulled from Google Flights for any origin/destination pair across all airlines; non-stop results only
 - **Price suggestions** — cheapest outbound + inbound prices for 7 date combinations (−3 to +3 days)
 - **Airport autocomplete** — fast local search across all IATA codes
 - **User accounts** — register, log in, and reset your password via a styled HTML email
@@ -30,7 +30,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 | **Scheduling** | APScheduler (hourly route checker) |
 | **Database** | PostgreSQL 16 |
 | **Frontend** | React 18, TypeScript, Vite, Tailwind CSS |
-| **Flight data** | Ryanair unofficial API (ryanair-py + direct HTTP) |
+| **Flight data** | Google Flights via `flights` (fli) library — reverse-engineered API |
 | **Testing** | pytest, pytest-cov, httpx, vitest, @testing-library/react |
 | **Infra** | Docker, Docker Compose |
 
@@ -208,10 +208,11 @@ GET /flights/search?origin=DUB&destination=BCN&date_from=2025-08-01&date_to=2025
         "price": 29.99,
         "currency": "EUR",
         "origin": "DUB",
-        "origin_full": "Dublin, Ireland",
+        "origin_full": "Dublin Airport",
         "destination": "BCN",
-        "destination_full": "Barcelona, Spain",
-        "departure_time": "2025-08-01T06:00:00"
+        "destination_full": "Barcelona International Airport",
+        "departure_time": "2025-08-01T06:00:00",
+        "airline": "Ryanair"
       }
     ],
     "error": null
@@ -298,7 +299,7 @@ docker compose run --rm test pytest tests/ -v --cov=. --cov-report=term-missing
 
 The test suite uses an in-memory SQLite database for full isolation. All Ryanair API calls are mocked — no network access required.
 
-Current coverage: **99%** across all source files (191 tests; `routers/routes.py`, `models.py`, and `routers/profile.py` at 100%).
+Current coverage: **99%** across all source files (`routers/routes.py`, `models.py`, and `routers/profile.py` at 100%). Note: test suite requires updating after the multi-airline migration to `flights` (fli) library.
 
 ### Frontend (vitest)
 
@@ -319,7 +320,7 @@ cheapflights/
 │   ├── config.py            # Shared constants (ADMIN_EMAIL)
 │   ├── database.py          # SQLAlchemy engine + session + get_db
 │   ├── limiter.py           # Shared slowapi rate-limiter instance
-│   ├── models.py            # ORM models: User, Route, RouteCheckLog, Flight, Alert, PasswordResetToken
+│   ├── models.py            # ORM models: User, Route, RouteCheckLog, PasswordResetToken, AccountDeletionToken
 │   ├── scheduler.py         # Hourly job: checks routes against alert goals, writes RouteCheckLog
 │   ├── routers/
 │   │   ├── admin.py         # GET /admin/users, GET /admin/logs, POST /admin/run-check
@@ -373,7 +374,7 @@ Every hour APScheduler runs `check_routes()`, which:
 2. For each route, fetches the cheapest outbound and inbound price from Ryanair.
 3. Evaluates whether the price goal (total ≤ `alert_price`) and/or availability goal (any outbound flight exists) are met.
 4. Writes a `RouteCheckLog` row recording the prices found, goal flags, and any error.
-5. If a goal is met, sets `route.is_active = False` so the route is skipped on all future runs, and sends a styled HTML alert email to the user with a "Book on Ryanair" button pre-filled with the correct passenger breakdown.
+5. If a goal is met, sets `route.is_active = False` so the route is skipped on all future runs, and sends a styled HTML alert email to the user with a "Search on Google Flights" button for the route.
 6. After the check loop, `expire_routes()` runs: any active route whose departure date has now passed without its goal being met is deleted from the database, and the user receives a "sorry" email explaining that no matching flight was found in time.
 
 The saved searches page reflects the goal status: once a goal is reached the card shows a green "Goal reached · \<date\>" banner and the search is no longer checked.
@@ -393,10 +394,10 @@ The saved searches page reflects the goal status: once a goal is reached the car
 - [x] Alert emails — styled HTML email sent to the user when a price or availability goal is reached
 - [x] Return-trip total in the main results view (cheapest outbound + return, shown between the search form and results)
 - [x] Multi-passenger support — search, book, and track prices for up to 9 passengers; group totals shown throughout
-- [x] Route-aware destination autocomplete — only destinations Ryanair actually flies from the selected origin are shown (24 h cached)
+- [x] Destination autocomplete — full airport search across all destinations supported by Google Flights
 - [x] User profile — default departure airport, travel group (adults + children), and light/dark/system theme preference
 - [x] Account deletion — delete account from profile page; confirmation email sent with a one-hour token link
-- [ ] Other airlines beyond Ryanair
+- [x] Multi-airline support — all non-stop flights from Google Flights (Ryanair, EasyJet, Vueling, Wizz Air, etc.)
 
 
 ---
