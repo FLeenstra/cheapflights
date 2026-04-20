@@ -1,7 +1,7 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from passlib.context import CryptContext
+import bcrypt
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
@@ -40,8 +40,6 @@ app.include_router(flights.router)
 app.include_router(routes.router)
 app.include_router(profile.router)
 app.include_router(admin.router)
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 ADMIN_PASSWORD = "Admin1234!"
 
@@ -82,7 +80,7 @@ def startup():
     try:
         admin = db.query(User).filter(User.email == ADMIN_EMAIL).first()
         if not admin:
-            db.add(User(email=ADMIN_EMAIL, password_hash=pwd_context.hash(ADMIN_PASSWORD), is_admin=True))
+            db.add(User(email=ADMIN_EMAIL, password_hash=bcrypt.hashpw(ADMIN_PASSWORD.encode(), bcrypt.gensalt()).decode(), is_admin=True))
             db.commit()
         elif not admin.is_admin:
             admin.is_admin = True
