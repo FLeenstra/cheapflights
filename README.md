@@ -8,10 +8,10 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 
 - **Flight search** — real-time prices pulled from Google Flights for any origin/destination pair across all airlines; non-stop results only
 - **Price suggestions** — cheapest outbound + inbound prices for 7 date combinations (−3 to +3 days)
-- **Airport autocomplete** — fast local search across all IATA codes
+- **Airport autocomplete** — fast local search across 7,000+ commercial airports worldwide
 - **User accounts** — register, log in, and reset your password via a styled HTML email
 - **Saved searches** — save any route search to your account; view, edit, and delete from a dedicated page sorted by departure date with sort and filter controls
-- **Multi-passenger support** — search and track routes for 1–9 passengers; all totals (cheapest summary, alert threshold, and Ryanair booking links) are calculated for the full group
+- **Multi-passenger support** — search and track routes for 1–9 passengers; all totals (cheapest summary and alert threshold) are calculated for the full group
 - **Alert options** — set a max group price alert, an availability alert (notify when any flight appears), or both when saving a search
 - **Hourly route checker** — background scheduler checks every active route with an alert, logs results, and deactivates the route once its goal is met
 - **Goal reached indicator** — saved searches show a green "Goal reached" banner with the exact timestamp when a price or availability goal was first met
