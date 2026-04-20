@@ -6,7 +6,7 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 
 ## Features
 
-- **Flight search** — real-time prices pulled from Google Flights for any origin/destination pair across all airlines; non-stop results only
+- **Flight search** — real-time prices pulled from Google Flights for any origin/destination pair across all airlines; non-stop results only; each flight card shows the airline logo
 - **Price suggestions** — cheapest outbound + inbound prices for 7 date combinations (−3 to +3 days)
 - **Airport autocomplete** — fast local search across 7,000+ commercial airports worldwide
 - **User accounts** — register, log in, and reset your password via a styled HTML email

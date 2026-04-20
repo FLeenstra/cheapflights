@@ -20,6 +20,7 @@ def _make_flight_result(
     origin_iata: str = "DUB",
     dest_iata: str = "BCN",
     airline_name: str = "Ryanair",
+    airline_iata: str = "FR",
     departure_iso: str = "2025-06-01T10:00:00",
 ):
     leg = MagicMock()
@@ -30,6 +31,7 @@ def _make_flight_result(
     leg.arrival_airport.value = f"{dest_iata} Airport"
     leg.departure_datetime.isoformat.return_value = departure_iso
     leg.airline.value = airline_name
+    leg.airline.name = airline_iata
 
     result = MagicMock()
     result.price = price
@@ -45,6 +47,7 @@ def _make_flight_dict(
     origin_iata: str = "DUB",
     dest_iata: str = "BCN",
     airline_name: str = "Ryanair",
+    airline_iata: str = "FR",
     departure_iso: str = "2027-06-01T10:00:00",
 ):
     """Return a flight dict as _search_date would produce."""
@@ -58,6 +61,7 @@ def _make_flight_dict(
         "destination_full": f"{dest_iata} Airport",
         "departure_time": departure_iso,
         "airline": airline_name,
+        "airline_iata": airline_iata,
     }
 
 
@@ -174,6 +178,7 @@ class TestFlightsSearchResults:
         flight = res.json()["outbound"]["flights"][0]
         assert "airline" in flight
         assert flight["airline"] == "Ryanair"
+        assert flight["airline_iata"] == "FR"
 
     def test_seven_suggestions_returned(self, client):
         res = self._search(client)
@@ -310,6 +315,7 @@ class TestSearchDate:
         assert flights[0]["origin"] == "DUB"
         assert flights[0]["destination"] == "BCN"
         assert flights[0]["airline"] == "Ryanair"
+        assert flights[0]["airline_iata"] == "FR"
 
     def test_returns_empty_list_when_no_results(self):
         from routers.flights import _search_date

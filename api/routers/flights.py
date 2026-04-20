@@ -75,6 +75,7 @@ def _search_date(origin: str, destination: str, d: date) -> tuple[list, str | No
             "destination_full": leg.arrival_airport.value,
             "departure_time": leg.departure_datetime.isoformat(),
             "airline": leg.airline.value if hasattr(leg.airline, "value") else str(leg.airline),
+            "airline_iata": leg.airline.name if hasattr(leg.airline, "name") else None,
         })
 
     return flights, None

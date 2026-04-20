@@ -1,4 +1,5 @@
 import { AlertCircle, ArrowRight, ExternalLink, Plane } from 'lucide-react'
+import { useState } from 'react'
 
 export interface Flight {
   flight_number: string
@@ -10,6 +11,7 @@ export interface Flight {
   destination_full: string
   departure_time: string
   airline?: string
+  airline_iata?: string
 }
 
 interface Props {
@@ -43,6 +45,21 @@ function buildDeeplink(flight: Flight, outboundDate?: string, inboundDate?: stri
     return `https://www.google.com/flights#flt=${flight.origin}.${flight.destination}.${dateOut}*${flight.destination}.${flight.origin}.${inboundDate}`
   }
   return `https://www.google.com/flights#flt=${flight.origin}.${flight.destination}.${dateOut};tt:o`
+}
+
+function AirlineLogo({ iata, name }: { iata?: string; name?: string }) {
+  const [failed, setFailed] = useState(false)
+  if (iata && !failed) {
+    return (
+      <img
+        src={`https://www.gstatic.com/flights/airline_logos/70px/${iata}.png`}
+        alt={name ?? iata}
+        onError={() => setFailed(true)}
+        className="w-8 h-8 object-contain rounded"
+      />
+    )
+  }
+  return <Plane className="w-5 h-5 text-brand-400 dark:text-brand-500" />
 }
 
 function isSelected(flight: Flight, selected?: Flight | null) {
@@ -121,8 +138,8 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex flex-col items-center gap-0.5 shrink-0 w-12">
-                    <Plane className="w-5 h-5 text-brand-400 dark:text-brand-500" />
+                  <div className="flex flex-col items-center gap-1 shrink-0 w-12">
+                    <AirlineLogo iata={flight.airline_iata} name={flight.airline} />
                     <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-none text-center truncate w-full">
                       {flight.airline ?? ''}
                     </span>
