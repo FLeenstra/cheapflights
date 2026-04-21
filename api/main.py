@@ -1,3 +1,5 @@
+import os
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,11 +43,18 @@ app.include_router(routes.router)
 app.include_router(profile.router)
 app.include_router(admin.router)
 
-ADMIN_PASSWORD = "Admin1234!"
-
-
 @app.on_event("startup")
 def startup():
+    from routers.auth import SECRET_KEY
+    if not SECRET_KEY:
+        raise RuntimeError("SECRET_KEY environment variable must be set")
+    if SECRET_KEY == "change-me-in-production":
+        raise RuntimeError("SECRET_KEY must be changed from the default value")
+
+    admin_password = os.getenv("ADMIN_PASSWORD")
+    if not admin_password:
+        raise RuntimeError("ADMIN_PASSWORD environment variable must be set")
+
     Base.metadata.create_all(bind=engine)
     with engine.begin() as conn:
         conn.execute(text(
@@ -80,7 +89,7 @@ def startup():
     try:
         admin = db.query(User).filter(User.email == ADMIN_EMAIL).first()
         if not admin:
-            db.add(User(email=ADMIN_EMAIL, password_hash=bcrypt.hashpw(ADMIN_PASSWORD.encode(), bcrypt.gensalt()).decode(), is_admin=True))
+            db.add(User(email=ADMIN_EMAIL, password_hash=bcrypt.hashpw(admin_password.encode(), bcrypt.gensalt()).decode(), is_admin=True))
             db.commit()
         elif not admin.is_admin:
             admin.is_admin = True

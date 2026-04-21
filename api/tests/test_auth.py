@@ -210,7 +210,7 @@ def test_send_reset_email_smtp_called(capsys):
 
 
 def test_send_reset_email_no_credentials_skips_starttls(capsys):
-    """When no SMTP_USER is set (e.g. Mailpit), starttls and login must not be called."""
+    """When SMTP_TLS=false (e.g. local Mailpit), starttls and login must not be called."""
     from routers.auth import _send_reset_email
     env = {"SMTP_HOST": "mailpit", "SMTP_PORT": "1025", "SMTP_USER": "", "SMTP_PASSWORD": "",
            "SMTP_FROM": "noreply@elcheeapo.com"}
@@ -218,8 +218,9 @@ def test_send_reset_email_no_credentials_skips_starttls(capsys):
     mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
     mock_smtp.__exit__ = MagicMock(return_value=False)
     with patch.dict("os.environ", env):
-        with patch("routers.auth.smtplib.SMTP", return_value=mock_smtp):
-            _send_reset_email("user@test.com", "http://localhost:5173/reset-password?token=abc")
+        with patch("routers.auth._SMTP_TLS", False):
+            with patch("routers.auth.smtplib.SMTP", return_value=mock_smtp):
+                _send_reset_email("user@test.com", "http://localhost:5173/reset-password?token=abc")
     mock_smtp.starttls.assert_not_called()
     mock_smtp.login.assert_not_called()
     mock_smtp.send_message.assert_called_once()

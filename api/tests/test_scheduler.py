@@ -475,10 +475,11 @@ def test_send_alert_email_smtp_called():
     mock_smtp.__exit__ = MagicMock(return_value=False)
 
     with patch.dict("os.environ", env):
-        with patch("scheduler.smtplib.SMTP", return_value=mock_smtp):
-            _send_alert_email("user@test.com", mock_route, True, False, 65.0)
+        with patch("scheduler._SMTP_TLS", False):
+            with patch("scheduler.smtplib.SMTP", return_value=mock_smtp):
+                _send_alert_email("user@test.com", mock_route, True, False, 65.0)
 
-    mock_smtp.starttls.assert_not_called()   # no SMTP_USER → no TLS
+    mock_smtp.starttls.assert_not_called()   # SMTP_TLS=false → no TLS
     mock_smtp.send_message.assert_called_once()
 
 

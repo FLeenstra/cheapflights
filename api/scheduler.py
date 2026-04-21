@@ -19,6 +19,7 @@ from models import Route, RouteCheckLog
 from routers.flights import _cheapest_for_date, _search_date
 
 logger = logging.getLogger(__name__)
+_SMTP_TLS = os.getenv("SMTP_TLS", "true").lower() == "true"
 
 
 def _pax_label(adults: int, children_ages: list[int]) -> str:
@@ -299,8 +300,9 @@ def _send_alert_email(
 
     try:
         with smtplib.SMTP(host, port) as smtp:
-            if smtp_user:
+            if _SMTP_TLS:
                 smtp.starttls()
+            if smtp_user:
                 smtp.login(smtp_user, smtp_password)
             smtp.send_message(msg)
     except Exception as exc:
@@ -448,8 +450,9 @@ def _send_expired_email(
 
     try:
         with smtplib.SMTP(host, port) as smtp:
-            if smtp_user:
+            if _SMTP_TLS:
                 smtp.starttls()
+            if smtp_user:
                 smtp.login(smtp_user, smtp_password)
             smtp.send_message(msg)
     except Exception as exc:

@@ -25,10 +25,11 @@ def _hash_password(password: str) -> str:
 def _verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY", "")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 _COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+_SMTP_TLS = os.getenv("SMTP_TLS", "true").lower() == "true"
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -249,8 +250,9 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
 
     try:
         with smtplib.SMTP(host, port) as smtp:
-            if smtp_user:
+            if _SMTP_TLS:
                 smtp.starttls()
+            if smtp_user:
                 smtp.login(smtp_user, smtp_password)
             smtp.send_message(msg)
     except Exception as exc:
@@ -464,8 +466,9 @@ def _send_delete_confirmation_email(to_email: str, confirm_url: str) -> None:
 
     try:
         with smtplib.SMTP(host, port) as smtp:
-            if smtp_user:
+            if _SMTP_TLS:
                 smtp.starttls()
+            if smtp_user:
                 smtp.login(smtp_user, smtp_password)
             smtp.send_message(msg)
     except Exception as exc:
