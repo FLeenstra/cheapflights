@@ -167,8 +167,6 @@ def _send_alert_email(
     # Flight tables
     flights_html = ""
     flights_text = ""
-    date_from_str = str(date_from)
-    date_to_str = str(date_to)
     if outbound_flights:
         flights_html += _flight_table_html(outbound_flights, "Outbound", origin, destination, date_from)
         flights_text += _flight_table_text(outbound_flights, "Outbound", origin, destination, date_from) + "\n"
