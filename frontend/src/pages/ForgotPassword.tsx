@@ -21,7 +21,8 @@ export default function ForgotPassword() {
       })
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.detail ?? 'Something went wrong')
+        const detail = data.detail
+        throw new Error(Array.isArray(detail) ? 'Please enter a valid email address' : (detail ?? 'Something went wrong'))
       }
       setSubmitted(true)
     } catch (err: unknown) {

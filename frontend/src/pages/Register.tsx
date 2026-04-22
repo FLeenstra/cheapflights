@@ -37,7 +37,13 @@ export default function Register() {
         body: JSON.stringify({ email, password }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.detail ?? 'Registration failed')
+      if (!res.ok) {
+        const detail = data.detail
+        const msg = Array.isArray(detail)
+          ? 'Please enter a valid email address'
+          : (detail ?? 'Registration failed')
+        throw new Error(msg)
+      }
       navigate('/search')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong')

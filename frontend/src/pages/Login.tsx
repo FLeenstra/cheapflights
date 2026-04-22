@@ -24,7 +24,10 @@ export default function Login() {
         body: JSON.stringify({ email, password }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.detail ?? 'Login failed')
+      if (!res.ok) {
+        const detail = data.detail
+        throw new Error(Array.isArray(detail) ? 'Please enter a valid email address' : (detail ?? 'Login failed'))
+      }
       navigate('/search')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
