@@ -1,5 +1,5 @@
 import { MapPin } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { airports, type Airport } from '../data/airports'
 import { sanitizeText } from '../lib/sanitize'
 
@@ -35,6 +35,7 @@ export default function AirportInput({ label, placeholder, value, onChange, allo
   const [highlighted, setHighlighted] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const listboxId = useId()
 
   const pool = allowedIata ? airports.filter(a => allowedIata.has(a.iata)) : airports
   const results = query.length >= 1
@@ -96,7 +97,12 @@ export default function AirportInput({ label, placeholder, value, onChange, allo
         <input
           ref={inputRef}
           type="text"
+          role="combobox"
           autoComplete="off"
+          aria-expanded={open && results.length > 0}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-activedescendant={open && results[highlighted] ? `${listboxId}-${results[highlighted].iata}` : undefined}
           placeholder={open || !value ? placeholder : ''}
           value={open ? query : displayValue}
           onFocus={() => {
@@ -114,10 +120,17 @@ export default function AirportInput({ label, placeholder, value, onChange, allo
       </div>
 
       {open && results.length > 0 && (
-        <ul className="absolute z-50 mt-1.5 w-full bg-white border border-gray-100 rounded-xl shadow-lg overflow-hidden dark:bg-gray-900 dark:border-gray-800">
+        <ul
+          id={listboxId}
+          role="listbox"
+          className="absolute z-50 mt-1.5 w-full bg-white border border-gray-100 rounded-xl shadow-lg overflow-hidden dark:bg-gray-900 dark:border-gray-800"
+        >
           {results.map((airport, i) => (
             <li
               key={airport.iata}
+              id={`${listboxId}-${airport.iata}`}
+              role="option"
+              aria-selected={i === highlighted}
               onMouseDown={() => handleSelect(airport)}
               onMouseEnter={() => setHighlighted(i)}
               className={`flex items-center justify-between px-4 py-3 cursor-pointer transition ${

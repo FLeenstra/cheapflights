@@ -8,7 +8,7 @@ from email.message import EmailMessage
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.orm import Session
 
@@ -19,12 +19,17 @@ from models import AccountDeletionToken, PasswordResetToken, Route, RouteCheckLo
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
+def _verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode(), hashed.encode())
+
+SECRET_KEY = os.getenv("SECRET_KEY", "")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 _COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+_SMTP_TLS = os.getenv("SMTP_TLS", "true").lower() == "true"
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -245,8 +250,9 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
 
     try:
         with smtplib.SMTP(host, port) as smtp:
-            if smtp_user:
+            if _SMTP_TLS:
                 smtp.starttls()
+            if smtp_user:
                 smtp.login(smtp_user, smtp_password)
             smtp.send_message(msg)
     except Exception as exc:
@@ -269,7 +275,7 @@ def register(body: RegisterRequest, response: Response, db: Session = Depends(ge
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(
         email=body.email,
-        password_hash=pwd_context.hash(body.password),
+        password_hash=_hash_password(body.password),
         is_admin=body.email == ADMIN_EMAIL,
     )
     db.add(user)
@@ -284,7 +290,7 @@ def register(body: RegisterRequest, response: Response, db: Session = Depends(ge
 @limiter.limit("10/minute")
 def login(request: Request, body: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
-    if not user or not pwd_context.verify(body.password, user.password_hash):
+    if not user or not _verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = create_token(str(user.id))
     _set_auth_cookie(response, token)
@@ -337,7 +343,9 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid or expired reset link")
 
     user = db.query(User).filter(User.id == reset_token.user_id).first()
-    user.password_hash = pwd_context.hash(body.password)
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+    user.password_hash = _hash_password(body.password)
     reset_token.used = True
     db.commit()
 
@@ -460,8 +468,9 @@ def _send_delete_confirmation_email(to_email: str, confirm_url: str) -> None:
 
     try:
         with smtplib.SMTP(host, port) as smtp:
-            if smtp_user:
+            if _SMTP_TLS:
                 smtp.starttls()
+            if smtp_user:
                 smtp.login(smtp_user, smtp_password)
             smtp.send_message(msg)
     except Exception as exc:

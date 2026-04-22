@@ -1,6 +1,7 @@
 import { Plane } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { getApiError, getNetworkError } from '../lib/apiError'
 import { sanitizeEmail, sanitizeText } from '../lib/sanitize'
 
 export default function Register() {
@@ -15,6 +16,10 @@ export default function Register() {
     e.preventDefault()
     setError('')
 
+    if (!email.includes('@') || !email.includes('.')) {
+      setError('Please enter a valid email address')
+      return
+    }
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
@@ -32,11 +37,10 @@ export default function Register() {
         credentials: 'include',
         body: JSON.stringify({ email, password }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail ?? 'Registration failed')
+      if (!res.ok) throw new Error(await getApiError(res, 'Registration failed.'))
       navigate('/search')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(getNetworkError(err))
     } finally {
       setLoading(false)
     }
@@ -92,13 +96,13 @@ export default function Register() {
           <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">Create an account</h2>
           <p className="text-gray-500 mb-8 dark:text-gray-400">Start tracking cheap flights in minutes</p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} noValidate className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5 dark:text-gray-200">
                 Email address
               </label>
               <input
-                type="email"
+                type="text"
                 required
                 maxLength={254}
                 value={email}

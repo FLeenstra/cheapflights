@@ -21,8 +21,9 @@ describe('AirportInput', () => {
     const input = screen.getByPlaceholderText('e.g. Dublin')
     fireEvent.focus(input)
     fireEvent.change(input, { target: { value: 'Dub' } })
-    expect(screen.getByText('Dublin')).toBeInTheDocument()
+    // Multiple airports share city name "Dublin" — verify by unique IATA badge
     expect(screen.getByText('DUB')).toBeInTheDocument()
+    expect(screen.getAllByText('Dublin').length).toBeGreaterThan(0)
   })
 
   it('shows no-results message for unknown query', () => {
@@ -38,8 +39,8 @@ describe('AirportInput', () => {
     render(<AirportInput {...baseProps} onChange={onChange} />)
     const input = screen.getByPlaceholderText('e.g. Dublin')
     fireEvent.focus(input)
-    fireEvent.change(input, { target: { value: 'Dub' } })
-    const option = screen.getByText('Dublin')
+    fireEvent.change(input, { target: { value: 'DUB' } })
+    const option = screen.getByText('DUB')
     fireEvent.mouseDown(option)
     expect(onChange).toHaveBeenCalledOnce()
     expect(onChange.mock.calls[0][0]).toMatchObject({ iata: 'DUB' })
@@ -69,10 +70,10 @@ describe('AirportInput', () => {
     render(<AirportInput {...baseProps} />)
     const input = screen.getByPlaceholderText('e.g. Dublin')
     fireEvent.focus(input)
-    fireEvent.change(input, { target: { value: 'Dub' } })
-    expect(screen.getByText('Dublin')).toBeInTheDocument()
+    fireEvent.change(input, { target: { value: 'DUB' } })
+    expect(screen.getByText('DUB')).toBeInTheDocument()
     fireEvent.keyDown(input, { key: 'Escape' })
-    expect(screen.queryByText('Dublin')).not.toBeInTheDocument()
+    expect(screen.queryByText('DUB')).not.toBeInTheDocument()
   })
 
   it('displays selected airport value when closed', () => {
@@ -117,8 +118,9 @@ describe('AirportInput', () => {
     render(<AirportInput {...baseProps} value={selected} />)
     const input = screen.getByDisplayValue('Dublin (DUB)')
     fireEvent.focus(input)
-    expect(screen.getByText('Dublin')).toBeInTheDocument()
+    // Multiple airports share city "Dublin" — verify by unique IATA badge
     expect(screen.getByText('DUB')).toBeInTheDocument()
+    expect(screen.getAllByText('Dublin').length).toBeGreaterThan(0)
   })
 
   it('leaves query empty when focusing an input with no value', () => {

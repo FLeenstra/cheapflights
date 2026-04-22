@@ -1,4 +1,5 @@
-import { AlertCircle, ArrowRight, Plane } from 'lucide-react'
+import { AlertCircle, ArrowRight, ExternalLink, Plane } from 'lucide-react'
+import { useState } from 'react'
 
 export interface Flight {
   flight_number: string
@@ -9,6 +10,8 @@ export interface Flight {
   destination: string
   destination_full: string
   departure_time: string
+  airline?: string
+  airline_iata?: string
 }
 
 interface Props {
@@ -18,7 +21,6 @@ interface Props {
   date: string
   outboundDate?: string
   inboundDate?: string
-  passengers?: number
   flights: Flight[]
   error: string | null
   selectedFlight?: Flight | null
@@ -26,7 +28,7 @@ interface Props {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-GB', {
+  return new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 }
@@ -37,19 +39,27 @@ function formatTime(iso: string) {
   })
 }
 
-function buildDeeplink(flight: Flight, outboundDate?: string, inboundDate?: string, passengers = 1) {
-  const isReturn = !!(outboundDate && inboundDate)
-  const params = new URLSearchParams({
-    adults: String(passengers), teens: '0', children: '0', infants: '0',
-    dateOut: outboundDate ?? flight.departure_time.slice(0, 10),
-    ...(isReturn ? { dateIn: inboundDate! } : {}),
-    isConnectedFlight: 'false',
-    isReturn: String(isReturn),
-    originIata: flight.origin,
-    destinationIata: flight.destination,
-    toUs: 'AGREED',
-  })
-  return `https://www.ryanair.com/ie/en/trip/flights/select?${params}`
+function buildDeeplink(flight: Flight, outboundDate?: string, inboundDate?: string) {
+  const dateOut = outboundDate ?? flight.departure_time.slice(0, 10)
+  if (outboundDate && inboundDate) {
+    return `https://www.google.com/flights#flt=${flight.origin}.${flight.destination}.${dateOut}*${flight.destination}.${flight.origin}.${inboundDate}`
+  }
+  return `https://www.google.com/flights#flt=${flight.origin}.${flight.destination}.${dateOut};tt:o`
+}
+
+function AirlineLogo({ iata, name }: { iata?: string; name?: string }) {
+  const [failed, setFailed] = useState(false)
+  if (iata && !failed) {
+    return (
+      <img
+        src={`https://www.gstatic.com/flights/airline_logos/70px/${iata}.png`}
+        alt={name ?? iata}
+        onError={() => setFailed(true)}
+        className="w-8 h-8 object-contain rounded"
+      />
+    )
+  }
+  return <Plane className="w-5 h-5 text-brand-400 dark:text-brand-500" />
 }
 
 function isSelected(flight: Flight, selected?: Flight | null) {
@@ -58,7 +68,7 @@ function isSelected(flight: Flight, selected?: Flight | null) {
     selected.departure_time === flight.departure_time
 }
 
-export default function FlightList({ label, from, to, date, outboundDate, inboundDate, passengers = 1, flights, error, selectedFlight, onSelect }: Props) {
+export default function FlightList({ label, from, to, date, outboundDate, inboundDate, flights, error, selectedFlight, onSelect }: Props) {
   const cheapestPrice = flights.length > 0 ? flights[0].price : null
   const currency = flights.length > 0 ? flights[0].currency : null
 
@@ -102,7 +112,7 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
           </div>
           <p className="font-medium text-gray-900 mb-1 dark:text-white">No {label.toLowerCase()} flights on this date</p>
           <p className="text-sm text-gray-400 dark:text-gray-500">
-            Ryanair doesn't appear to fly this route on the selected date.
+            No flights found for this route on the selected date.
             Check the price suggestions below for nearby dates.
           </p>
         </div>
@@ -115,7 +125,7 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
             const selected = isSelected(flight, selectedFlight)
             return (
               <div
-                key={i}
+                key={flight.flight_number + flight.departure_time}
                 onClick={() => onSelect?.(flight)}
                 className={`bg-white rounded-2xl border px-5 py-4 flex items-center justify-between transition hover:shadow-sm dark:bg-gray-900 ${
                   onSelect ? 'cursor-pointer' : ''
@@ -128,9 +138,11 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex flex-col items-center gap-0.5 shrink-0">
-                    <img src="/ryanair.png" alt="Ryanair" className="w-7 h-7 rounded-full" />
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-none">Ryanair</span>
+                  <div className="flex flex-col items-center gap-1 shrink-0 w-12">
+                    <AirlineLogo iata={flight.airline_iata} name={flight.airline} />
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-none text-center truncate w-full">
+                      {flight.airline ?? ''}
+                    </span>
                   </div>
                   {i === 0 && (
                     <span className="text-xs font-bold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full shrink-0 dark:text-brand-400 dark:bg-brand-900/30">
@@ -159,20 +171,22 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
                   </div>
                   <div className="flex flex-col gap-1.5" onClick={e => e.stopPropagation()}>
                     <a
-                      href={buildDeeplink(flight, undefined, undefined, passengers)}
+                      href={buildDeeplink(flight)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs font-medium px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 transition dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-200"
+                      className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 transition dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-200"
                     >
-                      Single
+                      <ExternalLink className="w-3 h-3" />
+                      One-way
                     </a>
                     {outboundDate && inboundDate && (
                       <a
-                        href={buildDeeplink(flight, outboundDate, inboundDate, passengers)}
+                        href={buildDeeplink(flight, outboundDate, inboundDate)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs font-medium px-2.5 py-1 rounded-lg border border-brand-200 text-brand-600 hover:bg-brand-50 transition dark:border-brand-800 dark:text-brand-400 dark:hover:bg-brand-900/30"
+                        className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border border-brand-200 text-brand-600 hover:bg-brand-50 transition dark:border-brand-800 dark:text-brand-400 dark:hover:bg-brand-900/30"
                       >
+                        <ExternalLink className="w-3 h-3" />
                         Return
                       </a>
                     )}

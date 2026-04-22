@@ -1,17 +1,17 @@
 # El Cheapo ✈️
 
-A Ryanair flight price monitor that helps budget travellers find the best deals. Search any route and date range to get real-time pricing, with automatic suggestions for the cheapest ±3-day window around your chosen dates.
+A multi-airline flight price monitor that helps budget travellers find the best deals. Search any route and date range to get real-time pricing across all airlines, with automatic suggestions for the cheapest ±3-day window around your chosen dates.
 
 ---
 
 ## Features
 
-- **Flight search** — real-time prices pulled from Ryanair's API for any origin/destination pair; destination autocomplete is filtered to only routes Ryanair actually flies from the selected origin
+- **Flight search** — real-time prices pulled from Google Flights for any origin/destination pair across all airlines; non-stop results only; each flight card shows the airline logo
 - **Price suggestions** — cheapest outbound + inbound prices for 7 date combinations (−3 to +3 days)
-- **Airport autocomplete** — fast local search across all IATA codes
+- **Airport autocomplete** — fast local search across 7,000+ commercial airports worldwide
 - **User accounts** — register, log in, and reset your password via a styled HTML email
 - **Saved searches** — save any route search to your account; view, edit, and delete from a dedicated page sorted by departure date with sort and filter controls
-- **Multi-passenger support** — search and track routes for 1–9 passengers; all totals (cheapest summary, alert threshold, and Ryanair booking links) are calculated for the full group
+- **Multi-passenger support** — search and track routes for 1–9 passengers; all totals (cheapest summary and alert threshold) are calculated for the full group
 - **Alert options** — set a max group price alert, an availability alert (notify when any flight appears), or both when saving a search
 - **Hourly route checker** — background scheduler checks every active route with an alert, logs results, and deactivates the route once its goal is met
 - **Goal reached indicator** — saved searches show a green "Goal reached" banner with the exact timestamp when a price or availability goal was first met
@@ -25,12 +25,12 @@ A Ryanair flight price monitor that helps budget travellers find the best deals.
 
 | Layer | Technology |
 |---|---|
-| **API** | Python 3.12, FastAPI, SQLAlchemy 2.0, psycopg2 |
-| **Auth** | JWT (python-jose), bcrypt (passlib) |
+| **API** | Python 3.13, FastAPI, SQLAlchemy 2.0, psycopg2 |
+| **Auth** | JWT (python-jose), bcrypt |
 | **Scheduling** | APScheduler (hourly route checker) |
-| **Database** | PostgreSQL 16 |
-| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS |
-| **Flight data** | Ryanair unofficial API (ryanair-py + direct HTTP) |
+| **Database** | PostgreSQL 17 |
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4 |
+| **Flight data** | Google Flights via `flights` (fli) library — reverse-engineered API |
 | **Testing** | pytest, pytest-cov, httpx, vitest, @testing-library/react |
 | **Infra** | Docker, Docker Compose |
 
@@ -58,13 +58,14 @@ cd cheapflights
 cp .env.example .env
 ```
 
-Open `.env` and set a strong `SECRET_KEY`. The default Postgres credentials are fine for local use. SMTP settings are optional — if left blank the password-reset link and goal-reached alerts are printed to the API container logs instead of emailed.
+Open `.env` and set a strong `SECRET_KEY` and `ADMIN_PASSWORD`. The default Postgres credentials are fine for local use. SMTP settings are optional — if left blank the password-reset link and goal-reached alerts are printed to the API container logs instead of emailed.
 
 ```env
 POSTGRES_USER=cheapflights
 POSTGRES_PASSWORD=changeme
 POSTGRES_DB=cheapflights
 SECRET_KEY=your-very-secret-key-here
+ADMIN_PASSWORD=your-admin-password-here
 
 # Optional — required to send password-reset emails
 SMTP_HOST=smtp.gmail.com
@@ -93,11 +94,7 @@ The API creates all database tables and a default admin account on first startup
 
 ### Default accounts
 
-| Role | Email | Password |
-|---|---|---|
-| Admin | `admin@elcheeapo.com` | `Admin1234!` |
-
-The admin account is created automatically. Log in with these credentials to access the admin panel at `/admin`. Change the defaults via the `ADMIN_EMAIL` environment variable (and by updating the hardcoded password in `api/main.py`) before deploying to production.
+The admin account is created automatically on first startup using the `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables (see `.env.example` for defaults). Log in with those credentials to access the admin panel at `/admin`.
 
 Password-reset emails and goal-reached alert emails are caught by **Mailpit** — open http://localhost:8025 to read them. No real email is sent in local development. To use a real mail provider in production, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` to your provider's credentials.
 
@@ -110,16 +107,18 @@ Password-reset emails and goal-reached alert emails are caught by **Mailpit** �
 | `POSTGRES_USER` | Yes | — | PostgreSQL username |
 | `POSTGRES_PASSWORD` | Yes | — | PostgreSQL password |
 | `POSTGRES_DB` | Yes | — | PostgreSQL database name |
-| `SECRET_KEY` | Yes | `change-me-in-production` | JWT signing key — **change this** |
+| `SECRET_KEY` | Yes | `change-me-in-production` | JWT signing key — **change this**; app refuses to start if missing or still set to the example value |
+| `ADMIN_PASSWORD` | Yes | — | Password for the seeded admin account — **change this** |
 | `DATABASE_URL` | No | derived from the above | Full SQLAlchemy connection string (set automatically by Docker Compose) |
-| `FRONTEND_URL` | No | `http://localhost:5173` | Base URL used in password-reset email links |
+| `ADMIN_EMAIL` | No | `admin@elcheeapo.com` | Email address granted admin access; a matching user is created on first startup |
+| `FRONTEND_URL` | No | `http://localhost:5173` | Base URL used in password-reset and account-deletion email links |
 | `COOKIE_SECURE` | No | `false` | Set to `true` in production (HTTPS) to add the `Secure` flag to the auth cookie |
 | `SMTP_HOST` | No | — | SMTP server hostname. If unset, reset links and alert emails are logged to stdout |
 | `SMTP_PORT` | No | `587` | SMTP port (STARTTLS) |
+| `SMTP_TLS` | No | `true` | Set to `false` for local Mailpit (no TLS) |
 | `SMTP_USER` | No | — | SMTP login username |
 | `SMTP_PASSWORD` | No | — | SMTP login password |
 | `SMTP_FROM` | No | same as `SMTP_USER` | From address on outgoing emails |
-| `ADMIN_EMAIL` | No | `admin@elcheeapo.com` | Email address granted admin access; a matching user is created on first startup |
 
 ---
 
@@ -208,10 +207,12 @@ GET /flights/search?origin=DUB&destination=BCN&date_from=2025-08-01&date_to=2025
         "price": 29.99,
         "currency": "EUR",
         "origin": "DUB",
-        "origin_full": "Dublin, Ireland",
+        "origin_full": "Dublin Airport",
         "destination": "BCN",
-        "destination_full": "Barcelona, Spain",
-        "departure_time": "2025-08-01T06:00:00"
+        "destination_full": "Barcelona International Airport",
+        "departure_time": "2025-08-01T06:00:00",
+        "airline": "Ryanair",
+        "airline_iata": "FR"
       }
     ],
     "error": null
@@ -296,9 +297,9 @@ Full interactive docs are available at `http://localhost:8000/docs` when the sta
 docker compose run --rm test pytest tests/ -v --cov=. --cov-report=term-missing
 ```
 
-The test suite uses an in-memory SQLite database for full isolation. All Ryanair API calls are mocked — no network access required.
+The test suite uses an in-memory SQLite database for full isolation. All Google Flights API calls are mocked — no network access required.
 
-Current coverage: **99%** across all source files (191 tests; `routers/routes.py`, `models.py`, and `routers/profile.py` at 100%).
+Current coverage: **99%** across all source files.
 
 ### Frontend (vitest)
 
@@ -319,12 +320,12 @@ cheapflights/
 │   ├── config.py            # Shared constants (ADMIN_EMAIL)
 │   ├── database.py          # SQLAlchemy engine + session + get_db
 │   ├── limiter.py           # Shared slowapi rate-limiter instance
-│   ├── models.py            # ORM models: User, Route, RouteCheckLog, Flight, Alert, PasswordResetToken
+│   ├── models.py            # ORM models: User, Route, RouteCheckLog, PasswordResetToken, AccountDeletionToken
 │   ├── scheduler.py         # Hourly job: checks routes against alert goals, writes RouteCheckLog
 │   ├── routers/
 │   │   ├── admin.py         # GET /admin/users, GET /admin/logs, POST /admin/run-check
 │   │   ├── auth.py          # register, login, logout, me, forgot-password, reset-password + JWT dependency
-│   │   ├── flights.py       # GET /flights/search + Ryanair API logic
+│   │   ├── flights.py       # GET /flights/search + Google Flights (fli) search logic
 │   │   ├── profile.py       # GET/PUT /profile/
 │   │   └── routes.py        # GET/POST/PUT/DELETE /routes/
 │   ├── tests/
@@ -342,9 +343,10 @@ cheapflights/
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx          # Router (Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Profile, Admin)
-│   │   ├── pages/           # Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Profile, Admin
-│   │   ├── components/      # Navbar, AirportInput, DateRangePicker, FlightList, PriceSuggestions
+│   │   ├── App.tsx          # Router (Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Profile, Admin, DeleteAccount)
+│   │   ├── pages/           # Login, Register, ForgotPassword, ResetPassword, Search, SavedSearches, Profile, Admin, DeleteAccount
+│   │   ├── components/      # Navbar, AirportInput, DateRangePicker, FlightList, PriceSuggestions, CheapestTotal
+│   │   ├── lib/             # sanitize, useDarkMode, apiError utilities
 │   │   └── data/
 │   │       └── airports.ts  # IATA code database
 │   ├── package.json
@@ -360,20 +362,19 @@ cheapflights/
 ## How it works
 
 1. The user enters an origin, destination, and outbound/inbound dates.
-2. The API fetches the Ryanair timetable for the selected month to find all scheduled departure times.
-3. For each scheduled departure, it fires a parallel fare request (up to 10 concurrent threads) to get the exact price.
-4. In parallel, it fetches the single cheapest price for each of the 6 surrounding dates (±3 days, both directions) to build the suggestions grid.
-5. Results are sorted cheapest-first and returned to the frontend.
+2. The API calls the Google Flights API (via the `fli` library) for the selected dates, fetching all non-stop results.
+3. In parallel, it fetches the single cheapest price for each of the 6 surrounding dates (±3 days, both directions) to build the suggestions grid.
+4. Results are sorted cheapest-first and returned to the frontend.
 
 ### Background route checker
 
 Every hour APScheduler runs `check_routes()`, which:
 
 1. Queries all active routes with a future departure date and at least one alert set (`alert_price` or `notify_available`).
-2. For each route, fetches the cheapest outbound and inbound price from Ryanair.
+2. For each route, fetches the cheapest outbound and inbound price from Google Flights.
 3. Evaluates whether the price goal (total ≤ `alert_price`) and/or availability goal (any outbound flight exists) are met.
 4. Writes a `RouteCheckLog` row recording the prices found, goal flags, and any error.
-5. If a goal is met, sets `route.is_active = False` so the route is skipped on all future runs, and sends a styled HTML alert email to the user with a "Book on Ryanair" button pre-filled with the correct passenger breakdown.
+5. If a goal is met, sets `route.is_active = False` so the route is skipped on all future runs, and sends a styled HTML alert email to the user with a "Search on Google Flights" button for the route.
 6. After the check loop, `expire_routes()` runs: any active route whose departure date has now passed without its goal being met is deleted from the database, and the user receives a "sorry" email explaining that no matching flight was found in time.
 
 The saved searches page reflects the goal status: once a goal is reached the card shows a green "Goal reached · \<date\>" banner and the search is no longer checked.
@@ -393,11 +394,10 @@ The saved searches page reflects the goal status: once a goal is reached the car
 - [x] Alert emails — styled HTML email sent to the user when a price or availability goal is reached
 - [x] Return-trip total in the main results view (cheapest outbound + return, shown between the search form and results)
 - [x] Multi-passenger support — search, book, and track prices for up to 9 passengers; group totals shown throughout
-- [x] Route-aware destination autocomplete — only destinations Ryanair actually flies from the selected origin are shown (24 h cached)
+- [x] Destination autocomplete — full airport search across all destinations supported by Google Flights
 - [x] User profile — default departure airport, travel group (adults + children), and light/dark/system theme preference
 - [x] Account deletion — delete account from profile page; confirmation email sent with a one-hour token link
-- [ ] Other airlines beyond Ryanair
-
+- [x] Multi-airline support — all non-stop flights from Google Flights (Ryanair, EasyJet, Vueling, Wizz Air, etc.)
 
 ---
 

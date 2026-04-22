@@ -19,16 +19,7 @@ from models import Route, RouteCheckLog
 from routers.flights import _cheapest_for_date, _search_date
 
 logger = logging.getLogger(__name__)
-
-
-def _pax_breakdown(adults: int, children_ages: list[int]) -> dict[str, str]:
-    """Split children ages into Ryanair categories: teens (12–15), children (2–11), infants (0–1)."""
-    return {
-        "adults": str(adults),
-        "teens": str(sum(1 for a in children_ages if 12 <= a <= 15)),
-        "children": str(sum(1 for a in children_ages if 2 <= a <= 11)),
-        "infants": str(sum(1 for a in children_ages if a <= 1)),
-    }
+_SMTP_TLS = os.getenv("SMTP_TLS", "true").lower() == "true"
 
 
 def _pax_label(adults: int, children_ages: list[int]) -> str:
@@ -45,25 +36,14 @@ def _pax_label(adults: int, children_ages: list[int]) -> str:
     return ", ".join(parts)
 
 
-def _ryanair_url(
-    origin: str, destination: str, date_out: str, date_in: str | None = None,
-    adults: int = 1, children_ages: list[int] | None = None,
-) -> str:
-    from urllib.parse import urlencode
-    pax = _pax_breakdown(adults, children_ages or [])
-    params: dict = {
-        "adults": pax["adults"], "teens": pax["teens"],
-        "children": pax["children"], "infants": pax["infants"],
-        "dateOut": str(date_out),
-        "isConnectedFlight": "false",
-        "isReturn": "true" if date_in else "false",
-        "originIata": origin,
-        "destinationIata": destination,
-        "toUs": "AGREED",
-    }
+def _google_flights_url(origin: str, destination: str, date_out: str, date_in: str | None = None) -> str:
     if date_in:
-        params["dateIn"] = str(date_in)
-    return "https://www.ryanair.com/ie/en/trip/flights/select?" + urlencode(params)
+        return (
+            f"https://www.google.com/flights#flt="
+            f"{origin}.{destination}.{date_out}*"
+            f"{destination}.{origin}.{date_in}"
+        )
+    return f"https://www.google.com/flights#flt={origin}.{destination}.{date_out};tt:o"
 
 
 def _flight_table_html(flights: list[dict], label: str, origin: str, destination: str, d) -> str:
@@ -183,14 +163,11 @@ def _send_alert_email(
         )
         goal_lines_text += "Availability goal reached — outbound flights are now on sale.\n"
 
-    # Ryanair search URL for the full route (always included so passenger params are present)
-    ryanair_search_url = _ryanair_url(origin, destination, date_from, date_to, adults=adults_count, children_ages=_children)
+    google_flights_url = _google_flights_url(origin, destination, str(date_from), str(date_to))
 
     # Flight tables
     flights_html = ""
     flights_text = ""
-    date_from_str = str(date_from)
-    date_to_str = str(date_to)
     if outbound_flights:
         flights_html += _flight_table_html(outbound_flights, "Outbound", origin, destination, date_from)
         flights_text += _flight_table_text(outbound_flights, "Outbound", origin, destination, date_from) + "\n"
@@ -263,9 +240,9 @@ def _send_alert_email(
               <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 <tr>
                   <td style="background-color:#2563eb;border-radius:10px;">
-                    <a href="{ryanair_search_url}"
+                    <a href="{google_flights_url}"
                        style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
-                      Book on Ryanair
+                      Search on Google Flights
                     </a>
                   </td>
                   <td style="width:12px;"></td>
@@ -323,8 +300,9 @@ def _send_alert_email(
 
     try:
         with smtplib.SMTP(host, port) as smtp:
-            if smtp_user:
+            if _SMTP_TLS:
                 smtp.starttls()
+            if smtp_user:
                 smtp.login(smtp_user, smtp_password)
             smtp.send_message(msg)
     except Exception as exc:
@@ -472,8 +450,9 @@ def _send_expired_email(
 
     try:
         with smtplib.SMTP(host, port) as smtp:
-            if smtp_user:
+            if _SMTP_TLS:
                 smtp.starttls()
+            if smtp_user:
                 smtp.login(smtp_user, smtp_password)
             smtp.send_message(msg)
     except Exception as exc:
@@ -573,7 +552,7 @@ def _check_route(db: Session, route: Route) -> None:
             route_id=route.id,
             outbound_price=Decimal(str(out_price)) if out_price is not None else None,
             inbound_price=Decimal(str(in_price)) if in_price is not None else None,
-            total_price=Decimal(str(total)) if total is not None else None,
+            total_price=Decimal(str(group_total)) if group_total is not None else None,
             flights_found=flights_found,
             price_goal_reached=price_goal_reached,
             available_goal_reached=available_goal_reached,

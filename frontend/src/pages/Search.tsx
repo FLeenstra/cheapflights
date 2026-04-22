@@ -50,15 +50,13 @@ export default function Search() {
 
   const [origin, setOrigin] = useState<Airport | null>(null)
   const [destination, setDestination] = useState<Airport | null>(null)
-  const [allowedDestinations, setAllowedDestinations] = useState<Set<string> | null>(null)
-  const [routesLoading, setRoutesLoading] = useState(false)
   const [dateFrom, setDateFrom] = useState<Date | undefined>()
   const [dateTo, setDateTo] = useState<Date | undefined>()
   const [adults, setAdults] = useState(1)
   const [childrenAges, setChildrenAges] = useState<number[]>([])
   const passengers = adults + childrenAges.length
   const [results, setResults] = useState<SearchResults | null>(null)
-  const [searchedRoute, setSearchedRoute] = useState<{ origin: Airport; destination: Airport; dateFrom: string; dateTo: string; passengers: number; infantCount: number } | null>(null)
+  const [searchedRoute, setSearchedRoute] = useState<{ origin: Airport; destination: Airport; dateFrom: string; dateTo: string; passengers: number } | null>(null)
   const [selectedOutbound, setSelectedOutbound] = useState<Flight | null>(null)
   const [selectedInbound, setSelectedInbound] = useState<Flight | null>(null)
   const [loading, setLoading] = useState(false)
@@ -127,23 +125,6 @@ export default function Search() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state])
 
-  useEffect(() => {
-    if (!origin) {
-      setAllowedDestinations(null)
-      return
-    }
-    let cancelled = false
-    setRoutesLoading(true)
-    fetch(`/api/flights/routes/${origin.iata}`)
-      .then(r => r.json())
-      .then(data => {
-        if (!cancelled) setAllowedDestinations(new Set<string>(data.destinations))
-      })
-      .catch(() => { if (!cancelled) setAllowedDestinations(null) })
-      .finally(() => { if (!cancelled) setRoutesLoading(false) })
-    return () => { cancelled = true }
-  }, [origin])
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!origin || !destination || !dateFrom || !dateTo) return
@@ -169,8 +150,7 @@ export default function Search() {
       setSelectedInbound(null)
       setDateFrom(from)
       setDateTo(to)
-      const infants = searchedChildrenAges.filter(a => a < 2).length
-      setSearchedRoute({ origin: org, destination: dest, dateFrom: toISO(from), dateTo: toISO(to), passengers: pax, infantCount: infants })
+      setSearchedRoute({ origin: org, destination: dest, dateFrom: toISO(from), dateTo: toISO(to), passengers: pax })
       if (data.outbound.flights.length > 0) setNotifyAvailable(false)
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Something went wrong')
@@ -234,7 +214,6 @@ export default function Search() {
                 onChange={airport => {
                   setOrigin(airport)
                   setDestination(null)
-                  setAllowedDestinations(null)
                 }}
               />
               <AirportInput
@@ -242,8 +221,6 @@ export default function Search() {
                 placeholder="e.g. Barcelona"
                 value={destination}
                 onChange={setDestination}
-                allowedIata={allowedDestinations ?? undefined}
-                loading={routesLoading}
               />
               <DateRangePicker
                 from={dateFrom}
@@ -446,11 +423,6 @@ export default function Search() {
               passengers={passengers}
               isCustomSelection={!!(selectedOutbound || selectedInbound)}
             />
-            {searchedRoute && searchedRoute.infantCount > 0 && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 text-center -mt-3">
-                Infant fee not included — Ryanair charges a small fixed fee per infant, not a full seat price.
-              </p>
-            )}
           </>
         )}
 
@@ -464,7 +436,6 @@ export default function Search() {
               date={searchedRoute.dateFrom}
               outboundDate={searchedRoute.dateFrom}
               inboundDate={searchedRoute.dateTo}
-              passengers={searchedRoute.passengers}
               flights={results.outbound.flights}
               error={results.outbound.error}
               selectedFlight={selectedOutbound}
@@ -478,7 +449,6 @@ export default function Search() {
               date={searchedRoute.dateTo}
               outboundDate={searchedRoute.dateFrom}
               inboundDate={searchedRoute.dateTo}
-              passengers={searchedRoute.passengers}
               flights={results.inbound.flights}
               error={results.inbound.error}
               selectedFlight={selectedInbound}

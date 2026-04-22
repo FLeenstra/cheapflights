@@ -1,3 +1,4 @@
+import uuid as uuid_module
 from datetime import datetime
 from typing import Optional
 
@@ -127,7 +128,6 @@ def make_admin(
     db: Session = Depends(get_db),
     _: User = Depends(get_admin),
 ):
-    import uuid as uuid_module
     try:
         uid = uuid_module.UUID(user_id)
     except ValueError:
@@ -146,7 +146,6 @@ def revoke_admin(
     db: Session = Depends(get_db),
     _: User = Depends(get_admin),
 ):
-    import uuid as uuid_module
     try:
         uid = uuid_module.UUID(user_id)
     except ValueError:

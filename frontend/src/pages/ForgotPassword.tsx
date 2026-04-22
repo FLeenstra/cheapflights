@@ -1,6 +1,7 @@
 import { Plane } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { getApiError, getNetworkError } from '../lib/apiError'
 import { sanitizeEmail } from '../lib/sanitize'
 
 export default function ForgotPassword() {
@@ -19,13 +20,10 @@ export default function ForgotPassword() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.detail ?? 'Something went wrong')
-      }
+      if (!res.ok) throw new Error(await getApiError(res, 'Something went wrong.'))
       setSubmitted(true)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(getNetworkError(err))
     } finally {
       setLoading(false)
     }
@@ -109,7 +107,7 @@ export default function ForgotPassword() {
                     Email address
                   </label>
                   <input
-                    type="email"
+                    type="text"
                     required
                     maxLength={254}
                     value={email}

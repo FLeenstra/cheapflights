@@ -1,6 +1,7 @@
 import { Monitor, Moon, Plus, Sun, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import AirportInput from '../components/AirportInput'
+import BirthdateInput from '../components/BirthdateInput'
 import Navbar from '../components/Navbar'
 import { type Airport, airports } from '../data/airports'
 import { type ThemePreference, useDarkMode } from '../lib/useDarkMode'
@@ -108,6 +109,11 @@ export default function Profile() {
     const invalidDates = childrenBirthdates.filter(d => !d)
     if (invalidDates.length > 0) {
       setSaveError('Please fill in a date of birth for each child.')
+      return
+    }
+    const futureDates = childrenBirthdates.filter(d => d > today)
+    if (futureDates.length > 0) {
+      setSaveError("Date of birth cannot be in the future.")
       return
     }
     setSaving(true)
@@ -227,12 +233,9 @@ export default function Profile() {
                     return (
                       <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 dark:bg-gray-800">
                         <span className="text-xs font-medium text-gray-500 w-14 shrink-0 dark:text-gray-400">Child {i + 1}</span>
-                        <input
-                          type="date"
+                        <BirthdateInput
                           value={bd}
-                          max={today}
-                          onChange={e => updateBirthdate(i, e.target.value)}
-                          className="flex-1 text-sm bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                          onChange={v => updateBirthdate(i, v)}
                         />
                         {cat && (
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-md shrink-0 ${cat.className}`}>

@@ -259,9 +259,7 @@ export default function SavedSearches() {
                       </div>
                       <div className="text-sm text-gray-500 mt-0.5 dark:text-gray-400">
                         {route.date_from} — {route.date_to}
-                        {paxSummary(route) && (
-                          <span className="ml-2 text-gray-400 dark:text-gray-600">· {paxSummary(route)}</span>
-                        )}
+                        {(() => { const pax = paxSummary(route); return pax ? <span className="ml-2 text-gray-400 dark:text-gray-600">· {pax}</span> : null })()}
                       </div>
                     </button>
 

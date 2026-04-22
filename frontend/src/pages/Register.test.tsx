@@ -29,6 +29,13 @@ describe('Register', () => {
     expect(screen.getByText('Sign in')).toBeInTheDocument()
   })
 
+  it('shows error when email is invalid', async () => {
+    renderRegister()
+    fillForm('notanemail', 'Password1!', 'Password1!')
+    fireEvent.click(screen.getByText('Create account'))
+    expect(screen.getByText('Please enter a valid email address')).toBeInTheDocument()
+  })
+
   it('shows error when passwords do not match', async () => {
     renderRegister()
     fillForm('user@test.com', 'Password1!', 'Different1!')

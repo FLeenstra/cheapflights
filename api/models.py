@@ -55,7 +55,7 @@ class Route(Base):
     __tablename__ = "routes"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
     origin: Mapped[str] = mapped_column(String(3), nullable=False)
     destination: Mapped[str] = mapped_column(String(3), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -68,7 +68,7 @@ class Route(Base):
     date_to: Mapped[date] = mapped_column(Date, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    user: Mapped["User | None"] = relationship("User", back_populates="routes")
+    user: Mapped["User"] = relationship("User", back_populates="routes")
     check_logs: Mapped[list["RouteCheckLog"]] = relationship("RouteCheckLog", back_populates="route")
 
 
