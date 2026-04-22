@@ -28,7 +28,7 @@ interface Props {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-GB', {
+  return new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 }
@@ -125,7 +125,7 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
             const selected = isSelected(flight, selectedFlight)
             return (
               <div
-                key={i}
+                key={flight.flight_number + flight.departure_time}
                 onClick={() => onSelect?.(flight)}
                 className={`bg-white rounded-2xl border px-5 py-4 flex items-center justify-between transition hover:shadow-sm dark:bg-gray-900 ${
                   onSelect ? 'cursor-pointer' : ''

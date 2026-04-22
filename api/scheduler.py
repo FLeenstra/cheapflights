@@ -552,7 +552,7 @@ def _check_route(db: Session, route: Route) -> None:
             route_id=route.id,
             outbound_price=Decimal(str(out_price)) if out_price is not None else None,
             inbound_price=Decimal(str(in_price)) if in_price is not None else None,
-            total_price=Decimal(str(total)) if total is not None else None,
+            total_price=Decimal(str(group_total)) if group_total is not None else None,
             flights_found=flights_found,
             price_goal_reached=price_goal_reached,
             available_goal_reached=available_goal_reached,

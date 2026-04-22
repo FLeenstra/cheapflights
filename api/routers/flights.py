@@ -19,6 +19,7 @@ router = APIRouter(prefix="/flights", tags=["flights"])
 
 _SUGGESTION_OFFSETS = range(-3, 4)  # -3 to +3 inclusive
 _IATA_RE = re.compile(r"^[A-Z]{3}$")
+_ALL_AIRPORT_IATAS = sorted(ap.name for ap in Airport)
 
 
 def _get_airport(iata: str) -> Airport | None:
@@ -46,7 +47,7 @@ def _make_filters(origin_ap: Airport, destination_ap: Airport, d: date) -> Fligh
 
 
 def _search_date(origin: str, destination: str, d: date) -> tuple[list, str | None]:
-    """All non-stop flights for a specific date, sorted cheapest first."""
+    """All non-stop flights for a specific date. Returns results sorted cheapest first."""
     origin_ap = _get_airport(origin)
     destination_ap = _get_airport(destination)
     if origin_ap is None or destination_ap is None:
@@ -78,7 +79,7 @@ def _search_date(origin: str, destination: str, d: date) -> tuple[list, str | No
             "airline_iata": leg.airline.name if hasattr(leg.airline, "name") else None,
         })
 
-    return flights, None
+    return sorted(flights, key=lambda f: f["price"]), None
 
 
 def _cheapest_for_date(origin: str, destination: str, d: date) -> float | None:
@@ -100,8 +101,7 @@ def get_routes(origin: str):
     origin = origin.strip().upper()
     if not _IATA_RE.match(origin):
         raise HTTPException(status_code=422, detail="origin must be a 3-letter IATA code")
-    # Multi-airline: return all known airports so the destination autocomplete is unrestricted
-    destinations = [ap.name for ap in Airport if ap.name != origin]
+    destinations = [iata for iata in _ALL_AIRPORT_IATAS if iata != origin]
     return {"destinations": destinations}
 
 

@@ -11,6 +11,8 @@ const FLIGHT: Flight = {
   destination: 'BCN',
   destination_full: 'Barcelona, Spain',
   departure_time: '2025-06-01T10:00:00',
+  airline: 'Ryanair',
+  airline_iata: 'FR',
 }
 
 const baseProps = {
@@ -66,19 +68,21 @@ describe('FlightList', () => {
     expect(screen.getByText('Outbound')).toBeInTheDocument()
   })
 
-  it('shows Ryanair logo on each flight card', () => {
+  it('shows airline logo image for each flight card', () => {
     const second: Flight = { ...FLIGHT, flight_number: 'FR5678', price: 120 }
     render(<FlightList {...baseProps} flights={[FLIGHT, second]} error={null} />)
-    const logos = screen.getAllByAltText('Ryanair')
+    const logos = screen.getAllByRole('img', { name: 'Ryanair' })
     expect(logos).toHaveLength(2)
-    logos.forEach(logo => expect(logo).toHaveAttribute('src', '/ryanair.png'))
+    logos.forEach(logo =>
+      expect(logo).toHaveAttribute('src', 'https://www.gstatic.com/flights/airline_logos/70px/FR.png')
+    )
   })
 
-  it('shows a Single booking button per flight', () => {
+  it('shows a One-way booking button per flight', () => {
     render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} />)
-    const link = screen.getByRole('link', { name: 'Single' })
-    expect(link).toHaveAttribute('href', expect.stringContaining('ryanair.com'))
-    expect(link).toHaveAttribute('href', expect.stringContaining('isReturn=false'))
+    const link = screen.getByRole('link', { name: /one-way/i })
+    expect(link).toHaveAttribute('href', expect.stringContaining('google.com/flights'))
+    expect(link).toHaveAttribute('href', expect.stringContaining('DUB.BCN'))
     expect(link).toHaveAttribute('target', '_blank')
   })
 
@@ -92,15 +96,15 @@ describe('FlightList', () => {
         inboundDate="2025-06-08"
       />
     )
-    const link = screen.getByRole('link', { name: 'Return' })
-    expect(link).toHaveAttribute('href', expect.stringContaining('isReturn=true'))
-    expect(link).toHaveAttribute('href', expect.stringContaining('dateOut=2025-06-01'))
-    expect(link).toHaveAttribute('href', expect.stringContaining('dateIn=2025-06-08'))
+    const link = screen.getByRole('link', { name: /return/i })
+    expect(link).toHaveAttribute('href', expect.stringContaining('google.com/flights'))
+    expect(link).toHaveAttribute('href', expect.stringContaining('DUB.BCN.2025-06-01'))
+    expect(link).toHaveAttribute('href', expect.stringContaining('BCN.DUB.2025-06-08'))
   })
 
   it('does not show a Return button when no paired dates are given', () => {
     render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} />)
-    expect(screen.queryByRole('link', { name: 'Return' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /return/i })).not.toBeInTheDocument()
   })
 
   it('calls onSelect when a flight card is clicked', async () => {
@@ -116,32 +120,5 @@ describe('FlightList', () => {
     )
     expect(container.firstChild).toBeDefined()
     expect(screen.getByText(/FR1234/).closest('div[class*="ring-2"]')).toBeTruthy()
-  })
-
-  it('sets adults param to passenger count in Single deeplink', () => {
-    render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} passengers={3} />)
-    const link = screen.getByRole('link', { name: 'Single' })
-    expect(link).toHaveAttribute('href', expect.stringContaining('adults=3'))
-  })
-
-  it('sets adults param to passenger count in Return deeplink', () => {
-    render(
-      <FlightList
-        {...baseProps}
-        flights={[FLIGHT]}
-        error={null}
-        outboundDate="2025-06-01"
-        inboundDate="2025-06-08"
-        passengers={2}
-      />
-    )
-    const link = screen.getByRole('link', { name: 'Return' })
-    expect(link).toHaveAttribute('href', expect.stringContaining('adults=2'))
-  })
-
-  it('defaults to adults=1 when passengers is not provided', () => {
-    render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} />)
-    const link = screen.getByRole('link', { name: 'Single' })
-    expect(link).toHaveAttribute('href', expect.stringContaining('adults=1'))
   })
 })

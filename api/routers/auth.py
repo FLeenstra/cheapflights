@@ -343,6 +343,8 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid or expired reset link")
 
     user = db.query(User).filter(User.id == reset_token.user_id).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
     user.password_hash = _hash_password(body.password)
     reset_token.used = True
     db.commit()
