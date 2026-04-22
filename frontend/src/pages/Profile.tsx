@@ -110,6 +110,11 @@ export default function Profile() {
       setSaveError('Please fill in a date of birth for each child.')
       return
     }
+    const futureDates = childrenBirthdates.filter(d => d > today)
+    if (futureDates.length > 0) {
+      setSaveError("Date of birth cannot be in the future.")
+      return
+    }
     setSaving(true)
     setSaveError('')
     setSaveSuccess(false)
@@ -230,7 +235,6 @@ export default function Profile() {
                         <input
                           type="date"
                           value={bd}
-                          max={today}
                           onChange={e => updateBirthdate(i, e.target.value)}
                           className="flex-1 text-sm bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                         />
