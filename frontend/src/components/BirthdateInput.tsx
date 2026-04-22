@@ -1,126 +1,80 @@
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import { DayPicker, type DropdownProps } from 'react-day-picker'
-
 interface Props {
   value: string   // YYYY-MM-DD or ''
   onChange: (value: string) => void
 }
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
 const TODAY = new Date()
-const FROM_YEAR = TODAY.getFullYear() - 17
-const TO_YEAR = TODAY.getFullYear()
+const THIS_YEAR = TODAY.getFullYear()
 
-function toDate(s: string): Date | undefined {
-  if (!s) return undefined
-  const d = new Date(s + 'T12:00:00')
-  return isNaN(d.getTime()) ? undefined : d
+function daysInMonth(month: number, year: number): number {
+  return new Date(year, month, 0).getDate()
 }
 
-function fromDate(d: Date): string {
-  return d.toISOString().slice(0, 10)
+function parse(value: string): { year: string; month: string; day: string } {
+  if (!value) return { year: '', month: '', day: '' }
+  const [y, m, d] = value.split('-')
+  return { year: y ?? '', month: m ?? '', day: d ?? '' }
 }
 
-function fmt(d: Date | undefined) {
-  if (!d) return null
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+function build(year: string, month: string, day: string): string {
+  if (!year || !month || !day) return ''
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
 }
 
-function StyledDropdown({ value, onChange, options }: DropdownProps) {
-  return (
-    <select
-      value={value}
-      onChange={onChange}
-      className="text-sm font-semibold text-gray-900 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-600 cursor-pointer dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-    >
-      {options?.map(opt => (
-        <option key={opt.value} value={opt.value} disabled={opt.disabled}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
-  )
-}
+const selectClass =
+  'text-sm text-gray-900 bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent cursor-pointer transition hover:border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:hover:border-gray-500'
 
 export default function BirthdateInput({ value, onChange }: Props) {
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const selected = toDate(value)
+  const { year, month, day } = parse(value)
 
-  useEffect(() => {
-    function onMouseDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [])
+  const yearNum = year ? parseInt(year) : THIS_YEAR - 5
+  const monthNum = month ? parseInt(month) : 1
+  const maxDay = daysInMonth(monthNum, yearNum)
 
-  function handleSelect(day: Date | undefined) {
-    if (day) {
-      onChange(fromDate(day))
-      setOpen(false)
+  function update(field: 'year' | 'month' | 'day', val: string) {
+    const next = {
+      year: field === 'year' ? val : year,
+      month: field === 'month' ? val : month,
+      day: field === 'day' ? val : day,
     }
+    // Clamp day if month/year change makes it out of range
+    if (next.year && next.month && next.day) {
+      const max = daysInMonth(parseInt(next.month), parseInt(next.year))
+      if (parseInt(next.day) > max) next.day = String(max)
+    }
+    onChange(build(next.year, next.month, next.day))
   }
 
   return (
-    <div ref={containerRef} className="relative flex-1">
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-white text-sm text-left transition focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent dark:bg-gray-700 ${
-          open
-            ? 'border-brand-600 ring-2 ring-brand-600 dark:border-brand-500'
-            : 'border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500'
-        }`}
-      >
-        <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0 dark:text-gray-500" />
-        <span className={selected ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}>
-          {fmt(selected) ?? 'Date of birth'}
-        </span>
-      </button>
+    <div className="flex items-center gap-1.5 flex-1">
+      {/* Day */}
+      <select value={day} onChange={e => update('day', e.target.value)} className={selectClass}>
+        <option value="">Day</option>
+        {Array.from({ length: maxDay }, (_, i) => i + 1).map(d => (
+          <option key={d} value={d}>{d}</option>
+        ))}
+      </select>
 
-      {open && (
-        <div className="absolute z-50 mt-1.5 left-0 bg-white border border-gray-100 rounded-2xl shadow-2xl p-4 dark:bg-gray-900 dark:border-gray-800">
-          <DayPicker
-            mode="single"
-            selected={selected}
-            onSelect={handleSelect}
-            disabled={{ after: TODAY }}
-            captionLayout="dropdown"
-            fromYear={FROM_YEAR}
-            toYear={TO_YEAR}
-            defaultMonth={selected ?? new Date(TO_YEAR - 5, 0)}
-            components={{
-              Dropdown: StyledDropdown,
-              Chevron: ({ orientation }) =>
-                orientation === 'left'
-                  ? <ChevronLeft className="w-4 h-4" />
-                  : <ChevronRight className="w-4 h-4" />,
-            }}
-            classNames={{
-              root: 'text-sm select-none',
-              month: 'space-y-3',
-              month_caption: 'flex items-center gap-2 mb-2',
-              dropdowns: 'flex items-center gap-1.5',
-              nav: 'flex items-center gap-1 ml-auto',
-              button_previous: 'p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition focus:outline-none dark:hover:bg-gray-800 dark:text-gray-400',
-              button_next: 'p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition focus:outline-none dark:hover:bg-gray-800 dark:text-gray-400',
-              month_grid: 'w-full border-collapse',
-              weekdays: 'flex mb-1',
-              weekday: 'w-9 h-7 flex items-center justify-center text-xs font-medium text-gray-400 dark:text-gray-600',
-              week: 'flex',
-              day: 'p-0',
-              day_button: 'w-9 h-9 flex items-center justify-center rounded-lg text-gray-700 text-sm font-medium hover:bg-brand-50 hover:text-brand-700 transition focus:outline-none dark:text-gray-300 dark:hover:bg-brand-900/30 dark:hover:text-brand-400',
-              today: '[&>button]:text-brand-600 [&>button]:font-bold dark:[&>button]:text-brand-400',
-              outside: '[&>button]:text-gray-300 [&>button]:hover:bg-transparent [&>button]:cursor-default dark:[&>button]:text-gray-700',
-              disabled: '[&>button]:text-gray-200 [&>button]:cursor-not-allowed [&>button]:hover:bg-transparent dark:[&>button]:text-gray-700',
-              selected: '[&>button]:bg-brand-600 [&>button]:text-white [&>button]:hover:bg-brand-700',
-            }}
-          />
-        </div>
-      )}
+      {/* Month */}
+      <select value={month} onChange={e => update('month', e.target.value)} className={selectClass}>
+        <option value="">Month</option>
+        {MONTHS.map((name, i) => (
+          <option key={i + 1} value={i + 1}>{name}</option>
+        ))}
+      </select>
+
+      {/* Year */}
+      <select value={year} onChange={e => update('year', e.target.value)} className={selectClass}>
+        <option value="">Year</option>
+        {Array.from({ length: 18 }, (_, i) => THIS_YEAR - i).map(y => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
     </div>
   )
 }
