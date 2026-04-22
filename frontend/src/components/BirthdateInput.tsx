@@ -1,6 +1,6 @@
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { DayPicker } from 'react-day-picker'
+import { DayPicker, type DropdownProps } from 'react-day-picker'
 
 interface Props {
   value: string   // YYYY-MM-DD or ''
@@ -24,6 +24,22 @@ function fromDate(d: Date): string {
 function fmt(d: Date | undefined) {
   if (!d) return null
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function StyledDropdown({ value, onChange, options }: DropdownProps) {
+  return (
+    <select
+      value={value}
+      onChange={onChange}
+      className="text-sm font-semibold text-gray-900 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-600 cursor-pointer dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+    >
+      {options?.map(opt => (
+        <option key={opt.value} value={opt.value} disabled={opt.disabled}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  )
 }
 
 export default function BirthdateInput({ value, onChange }: Props) {
@@ -77,6 +93,7 @@ export default function BirthdateInput({ value, onChange }: Props) {
             toYear={TO_YEAR}
             defaultMonth={selected ?? new Date(TO_YEAR - 5, 0)}
             components={{
+              Dropdown: StyledDropdown,
               Chevron: ({ orientation }) =>
                 orientation === 'left'
                   ? <ChevronLeft className="w-4 h-4" />
@@ -85,11 +102,9 @@ export default function BirthdateInput({ value, onChange }: Props) {
             classNames={{
               root: 'text-sm select-none',
               month: 'space-y-3',
-              month_caption: 'flex items-center justify-between mb-2 gap-2',
-              caption_label: 'hidden',
+              month_caption: 'flex items-center gap-2 mb-2',
               dropdowns: 'flex items-center gap-1.5',
-              dropdown: 'text-sm font-semibold text-gray-900 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-600 cursor-pointer dark:bg-gray-800 dark:border-gray-700 dark:text-white',
-              nav: 'flex items-center gap-1',
+              nav: 'flex items-center gap-1 ml-auto',
               button_previous: 'p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition focus:outline-none dark:hover:bg-gray-800 dark:text-gray-400',
               button_next: 'p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition focus:outline-none dark:hover:bg-gray-800 dark:text-gray-400',
               month_grid: 'w-full border-collapse',
