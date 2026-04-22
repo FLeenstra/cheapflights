@@ -98,7 +98,7 @@ export default function Login() {
                 Email address
               </label>
               <input
-                type="email"
+                type="text"
                 required
                 maxLength={254}
                 value={email}
