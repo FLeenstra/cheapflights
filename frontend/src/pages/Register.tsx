@@ -15,6 +15,10 @@ export default function Register() {
     e.preventDefault()
     setError('')
 
+    if (!email.includes('@') || !email.includes('.')) {
+      setError('Please enter a valid email address')
+      return
+    }
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
@@ -92,7 +96,7 @@ export default function Register() {
           <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">Create an account</h2>
           <p className="text-gray-500 mb-8 dark:text-gray-400">Start tracking cheap flights in minutes</p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} noValidate className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5 dark:text-gray-200">
                 Email address
