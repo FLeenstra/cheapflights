@@ -1,6 +1,7 @@
 import { Plane } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { getApiError, getNetworkError } from '../lib/apiError'
 import { sanitizeEmail, sanitizeText } from '../lib/sanitize'
 
 export default function Login() {
@@ -23,14 +24,10 @@ export default function Login() {
         credentials: 'include',
         body: JSON.stringify({ email, password }),
       })
-      const data = await res.json()
-      if (!res.ok) {
-        const detail = data.detail
-        throw new Error(Array.isArray(detail) ? 'Please enter a valid email address' : (detail ?? 'Login failed'))
-      }
+      if (!res.ok) throw new Error(await getApiError(res, 'Login failed.'))
       navigate('/search')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(getNetworkError(err))
     } finally {
       setLoading(false)
     }

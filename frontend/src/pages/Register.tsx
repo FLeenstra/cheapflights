@@ -1,6 +1,7 @@
 import { Plane } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { getApiError, getNetworkError } from '../lib/apiError'
 import { sanitizeEmail, sanitizeText } from '../lib/sanitize'
 
 export default function Register() {
@@ -36,17 +37,10 @@ export default function Register() {
         credentials: 'include',
         body: JSON.stringify({ email, password }),
       })
-      const data = await res.json()
-      if (!res.ok) {
-        const detail = data.detail
-        const msg = Array.isArray(detail)
-          ? 'Please enter a valid email address'
-          : (detail ?? 'Registration failed')
-        throw new Error(msg)
-      }
+      if (!res.ok) throw new Error(await getApiError(res, 'Registration failed.'))
       navigate('/search')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(getNetworkError(err))
     } finally {
       setLoading(false)
     }
