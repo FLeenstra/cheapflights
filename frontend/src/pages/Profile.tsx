@@ -1,9 +1,11 @@
 import { Monitor, Moon, Plus, Sun, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import AirportInput from '../components/AirportInput'
 import BirthdateInput from '../components/BirthdateInput'
 import Navbar from '../components/Navbar'
 import { type Airport, airports } from '../data/airports'
+import { LANGUAGES } from '../lib/i18n'
 import { type ThemePreference, useDarkMode } from '../lib/useDarkMode'
 
 interface ProfileData {
@@ -11,6 +13,7 @@ interface ProfileData {
   travel_adults: number
   travel_children_birthdates: string[]
   theme_preference: ThemePreference
+  language: string
 }
 
 function calcAge(birthdate: string, referenceDate = new Date()): number {
@@ -21,21 +24,17 @@ function calcAge(birthdate: string, referenceDate = new Date()): number {
   return Math.max(0, age)
 }
 
-function ageCategory(age: number): { label: string; className: string } {
-  if (age < 2)  return { label: 'Infant',  className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' }
-  if (age < 16) return { label: 'Child',   className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' }
-  return         { label: 'Adult',    className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' }
-}
-
 const today = new Date().toISOString().split('T')[0]
 
 export default function Profile() {
+  const { t, i18n } = useTranslation()
   const { preference: currentTheme, setPreference } = useDarkMode()
 
   const [defaultOrigin, setDefaultOrigin] = useState<Airport | null>(null)
   const [travelAdults, setTravelAdults] = useState(1)
   const [childrenBirthdates, setChildrenBirthdates] = useState<string[]>([])
   const [theme, setTheme] = useState<ThemePreference>(currentTheme)
+  const [language, setLanguage] = useState(i18n.language.split('-')[0] || 'en')
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -57,6 +56,10 @@ export default function Profile() {
         setChildrenBirthdates(profile.travel_children_birthdates ?? [])
         setTheme(profile.theme_preference)
         setPreference(profile.theme_preference)
+        if (profile.language) {
+          setLanguage(profile.language)
+          i18n.changeLanguage(profile.language)
+        }
       }
       if (me) setIsAdmin(me.is_admin)
     }).catch(() => {}).finally(() => setLoading(false))
@@ -92,10 +95,10 @@ export default function Profile() {
         credentials: 'include',
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.detail ?? 'Request failed')
+      if (!res.ok) throw new Error(data.detail ?? t('common.somethingWentWrong'))
       setDeleteRequested(true)
     } catch (err: unknown) {
-      setDeleteError(err instanceof Error ? err.message : 'Something went wrong')
+      setDeleteError(err instanceof Error ? err.message : t('common.somethingWentWrong'))
     } finally {
       setDeleteRequesting(false)
     }
@@ -103,17 +106,17 @@ export default function Profile() {
 
   async function handleSave() {
     if (travelAdults + childrenBirthdates.length > 9) {
-      setSaveError('Total passengers (adults + children) cannot exceed 9.')
+      setSaveError(t('profile.errorMaxPassengers'))
       return
     }
     const invalidDates = childrenBirthdates.filter(d => !d)
     if (invalidDates.length > 0) {
-      setSaveError('Please fill in a date of birth for each child.')
+      setSaveError(t('profile.errorMissingDob'))
       return
     }
     const futureDates = childrenBirthdates.filter(d => d > today)
     if (futureDates.length > 0) {
-      setSaveError("Date of birth cannot be in the future.")
+      setSaveError(t('profile.errorFutureDob'))
       return
     }
     setSaving(true)
@@ -129,22 +132,29 @@ export default function Profile() {
           travel_adults: travelAdults,
           travel_children_birthdates: childrenBirthdates,
           theme_preference: theme,
+          language,
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.detail ?? 'Failed to save profile')
+      if (!res.ok) throw new Error(data.detail ?? t('common.somethingWentWrong'))
       setSaveSuccess(true)
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : 'Something went wrong')
+      setSaveError(err instanceof Error ? err.message : t('common.somethingWentWrong'))
     } finally {
       setSaving(false)
     }
   }
 
+  function ageCategory(age: number): { label: string; className: string } {
+    if (age < 2)  return { label: t('profile.infant'),      className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' }
+    if (age < 16) return { label: t('profile.child_label'), className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' }
+    return         { label: t('profile.adult_label'),       className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' }
+  }
+
   const themeOptions: { value: ThemePreference; label: string; Icon: React.ElementType }[] = [
-    { value: 'light',  label: 'Light',  Icon: Sun },
-    { value: 'dark',   label: 'Dark',   Icon: Moon },
-    { value: 'system', label: 'Device', Icon: Monitor },
+    { value: 'light',  label: t('profile.themeLight'),  Icon: Sun },
+    { value: 'dark',   label: t('profile.themeDark'),   Icon: Moon },
+    { value: 'system', label: t('profile.themeDevice'), Icon: Monitor },
   ]
 
   function Counter({ value, onChange, min, max }: { value: number; onChange: (n: number) => void; min: number; max: number }) {
@@ -167,9 +177,9 @@ export default function Profile() {
     <div className="min-h-screen bg-brand-50 dark:bg-gray-950">
       <Navbar />
       <div className="max-w-xl mx-auto px-6 py-10">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1 dark:text-white">Profile</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1 dark:text-white">{t('profile.title')}</h1>
         <p className="text-gray-500 text-sm mb-8 dark:text-gray-400">
-          Set your defaults — they'll pre-fill the search form automatically.
+          {t('profile.subtitle')}
         </p>
 
         {loading ? (
@@ -183,27 +193,27 @@ export default function Profile() {
 
             {/* Default origin */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 dark:bg-gray-900 dark:border-gray-800">
-              <h2 className="text-sm font-semibold text-gray-700 mb-1 dark:text-gray-200">Default departure airport</h2>
-              <p className="text-xs text-gray-400 mb-4 dark:text-gray-500">Pre-fills the "From" field on every new search.</p>
-              <AirportInput label="" placeholder="e.g. Dublin" value={defaultOrigin} onChange={setDefaultOrigin} />
+              <h2 className="text-sm font-semibold text-gray-700 mb-1 dark:text-gray-200">{t('profile.defaultDeparture')}</h2>
+              <p className="text-xs text-gray-400 mb-4 dark:text-gray-500">{t('profile.defaultDepartureHint')}</p>
+              <AirportInput label="" placeholder={t('profile.defaultDeparturePlaceholder')} value={defaultOrigin} onChange={setDefaultOrigin} />
               {defaultOrigin && (
                 <button type="button" onClick={() => setDefaultOrigin(null)}
                   className="mt-2 text-xs text-gray-400 hover:text-red-500 transition dark:text-gray-600 dark:hover:text-red-400">
-                  Clear
+                  {t('profile.clear')}
                 </button>
               )}
             </div>
 
             {/* Travel group */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 dark:bg-gray-900 dark:border-gray-800">
-              <h2 className="text-sm font-semibold text-gray-700 mb-1 dark:text-gray-200">Default travel group</h2>
-              <p className="text-xs text-gray-400 mb-5 dark:text-gray-500">Pre-fills the passenger count on every new search.</p>
+              <h2 className="text-sm font-semibold text-gray-700 mb-1 dark:text-gray-200">{t('profile.travelGroup')}</h2>
+              <p className="text-xs text-gray-400 mb-5 dark:text-gray-500">{t('profile.travelGroupHint')}</p>
 
               {/* Adults */}
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Adults</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">16 years and above</p>
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('profile.adults')}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{t('profile.adultsHint')}</p>
                 </div>
                 <Counter
                   value={travelAdults}
@@ -217,13 +227,13 @@ export default function Profile() {
               <div className="border-t border-gray-100 pt-4 dark:border-gray-800">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Children</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">Under 16 — enter date of birth to verify age category</p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('profile.children')}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{t('profile.childrenHint')}</p>
                   </div>
                 </div>
 
                 {childrenBirthdates.length === 0 && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">No children added.</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">{t('profile.noChildren')}</p>
                 )}
 
                 <div className="space-y-3 mb-3">
@@ -232,7 +242,7 @@ export default function Profile() {
                     const cat = age !== null ? ageCategory(age) : null
                     return (
                       <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 dark:bg-gray-800">
-                        <span className="text-xs font-medium text-gray-500 w-14 shrink-0 dark:text-gray-400">Child {i + 1}</span>
+                        <span className="text-xs font-medium text-gray-500 w-14 shrink-0 dark:text-gray-400">{t('profile.child', { n: i + 1 })}</span>
                         <BirthdateInput
                           value={bd}
                           onChange={v => updateBirthdate(i, v)}
@@ -243,7 +253,7 @@ export default function Profile() {
                           </span>
                         )}
                         {age !== null && age >= 16 && (
-                          <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0">⚠ counts as adult</span>
+                          <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0">{t('profile.countsAsAdult')}</span>
                         )}
                         <button type="button" onClick={() => removeChild(i)}
                           className="text-gray-400 hover:text-red-500 transition dark:text-gray-600 dark:hover:text-red-400 shrink-0">
@@ -258,13 +268,13 @@ export default function Profile() {
                   <button type="button" onClick={addChild}
                     className="flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 font-medium transition dark:text-brand-400 dark:hover:text-brand-300">
                     <Plus className="w-4 h-4" />
-                    Add child
+                    {t('profile.addChild')}
                   </button>
                 )}
 
                 {travelAdults + childrenBirthdates.length > 1 && (
                   <p className="text-xs text-gray-400 mt-3 dark:text-gray-500">
-                    {travelAdults + childrenBirthdates.length} passengers total
+                    {t('profile.passengersTotal', { n: travelAdults + childrenBirthdates.length })}
                   </p>
                 )}
               </div>
@@ -272,8 +282,8 @@ export default function Profile() {
 
             {/* Appearance */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 dark:bg-gray-900 dark:border-gray-800">
-              <h2 className="text-sm font-semibold text-gray-700 mb-1 dark:text-gray-200">Appearance</h2>
-              <p className="text-xs text-gray-400 mb-4 dark:text-gray-500">Choose how El Cheapo looks to you.</p>
+              <h2 className="text-sm font-semibold text-gray-700 mb-1 dark:text-gray-200">{t('profile.appearance')}</h2>
+              <p className="text-xs text-gray-400 mb-4 dark:text-gray-500">{t('profile.appearanceHint')}</p>
               <div className="flex gap-3">
                 {themeOptions.map(({ value, label, Icon }) => (
                   <button key={value} type="button"
@@ -290,6 +300,26 @@ export default function Profile() {
               </div>
             </div>
 
+            {/* Language */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 dark:bg-gray-900 dark:border-gray-800">
+              <h2 className="text-sm font-semibold text-gray-700 mb-1 dark:text-gray-200">{t('profile.language')}</h2>
+              <p className="text-xs text-gray-400 mb-4 dark:text-gray-500">{t('profile.languageHint')}</p>
+              <div className="flex flex-wrap gap-2">
+                {LANGUAGES.map(lang => (
+                  <button key={lang.code} type="button"
+                    onClick={() => { setSaveSuccess(false); setLanguage(lang.code); i18n.changeLanguage(lang.code) }}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition ${
+                      language === lang.code
+                        ? 'border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-900/30 dark:text-brand-400'
+                        : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800'
+                    }`}>
+                    <span>{lang.flag}</span>
+                    <span>{lang.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {saveError && (
               <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
                 {saveError}
@@ -297,28 +327,28 @@ export default function Profile() {
             )}
             {saveSuccess && (
               <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
-                Profile saved.
+                {t('profile.saved')}
               </div>
             )}
 
             <button type="button" onClick={handleSave} disabled={saving}
               className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2 dark:focus:ring-offset-gray-950">
-              {saving ? 'Saving…' : 'Save profile'}
+              {saving ? t('profile.saving') : t('profile.saveProfile')}
             </button>
 
             {/* Danger zone */}
             <div className="bg-white rounded-2xl border border-red-100 p-6 dark:bg-gray-900 dark:border-red-900/50">
-              <h2 className="text-sm font-semibold text-red-700 mb-1 dark:text-red-400">Danger zone</h2>
+              <h2 className="text-sm font-semibold text-red-700 mb-1 dark:text-red-400">{t('profile.dangerZone')}</h2>
               <p className="text-xs text-gray-400 mb-4 dark:text-gray-500">
-                Permanently delete your account and all associated data. This cannot be undone.
+                {t('profile.dangerZoneHint')}
               </p>
               {isAdmin ? (
                 <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm rounded-xl px-4 py-3 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400">
-                  Admin accounts cannot be deleted. Revoke your admin rights in the admin panel first.
+                  {t('profile.adminCannotDelete')}
                 </div>
               ) : deleteRequested ? (
                 <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
-                  Check your email for a confirmation link to complete the deletion.
+                  {t('profile.deleteEmailSent')}
                 </div>
               ) : (
                 <>
@@ -329,7 +359,7 @@ export default function Profile() {
                   )}
                   <button type="button" onClick={handleRequestDelete} disabled={deleteRequesting}
                     className="border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold px-5 py-2.5 rounded-xl text-sm transition dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20">
-                    {deleteRequesting ? 'Sending…' : 'Delete account'}
+                    {deleteRequesting ? t('profile.sending') : t('profile.deleteAccount')}
                   </button>
                 </>
               )}

@@ -1,10 +1,12 @@
 import { Plane } from 'lucide-react'
 import { FormEvent, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { getApiError, getNetworkError } from '../lib/apiError'
 import { sanitizeEmail } from '../lib/sanitize'
 
 export default function ForgotPassword() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -20,7 +22,7 @@ export default function ForgotPassword() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
-      if (!res.ok) throw new Error(await getApiError(res, 'Something went wrong.'))
+      if (!res.ok) throw new Error(await getApiError(res, t('common.somethingWentWrong')))
       setSubmitted(true)
     } catch (err: unknown) {
       setError(getNetworkError(err))
@@ -37,30 +39,30 @@ export default function ForgotPassword() {
           <div className="bg-white/20 rounded-xl p-2">
             <Plane className="w-6 h-6 text-white" />
           </div>
-          <span className="text-xl font-bold tracking-tight">El Cheapo</span>
+          <span className="text-xl font-bold tracking-tight">{t('brand')}</span>
         </div>
 
         <div>
           <h1 className="text-4xl font-bold leading-tight mb-4">
-            Locked out?<br />No problem.
+            {t('forgotPassword.headline')}
           </h1>
           <p className="text-brand-200 text-lg leading-relaxed">
-            Enter your email and we'll send you a link to reset your password. The link is valid for one hour.
+            {t('forgotPassword.tagline')}
           </p>
         </div>
 
         <div className="flex items-center gap-4 text-brand-200 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-400" />
-            Secure link
+            {t('forgotPassword.secureLink')}
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-brand-300" />
-            Expires in 1 hour
+            {t('forgotPassword.expiresIn')}
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-brand-300" />
-            Single use
+            {t('forgotPassword.singleUse')}
           </div>
         </div>
       </div>
@@ -73,7 +75,7 @@ export default function ForgotPassword() {
             <div className="bg-brand-600 rounded-xl p-2">
               <Plane className="w-5 h-5 text-white" />
             </div>
-            <span className="text-lg font-bold text-gray-900 dark:text-white">El Cheapo</span>
+            <span className="text-lg font-bold text-gray-900 dark:text-white">{t('brand')}</span>
           </div>
 
           {submitted ? (
@@ -83,28 +85,28 @@ export default function ForgotPassword() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">Check your inbox</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">{t('forgotPassword.checkInbox')}</h2>
               <p className="text-gray-500 mb-8 dark:text-gray-400">
-                If <span className="font-medium text-gray-700 dark:text-gray-200">{email}</span> is registered, you'll receive a password reset link shortly.
+                {t('forgotPassword.checkInboxSubtitle', { email })}
               </p>
               <Link
                 to="/login"
                 className="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
               >
-                Back to sign in
+                {t('forgotPassword.backToSignIn')}
               </Link>
             </>
           ) : (
             <>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">Forgot password?</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">{t('forgotPassword.title')}</h2>
               <p className="text-gray-500 mb-8 dark:text-gray-400">
-                Enter the email address for your account and we'll send you a reset link.
+                {t('forgotPassword.subtitle')}
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5 dark:text-gray-200">
-                    Email address
+                    {t('forgotPassword.emailLabel')}
                   </label>
                   <input
                     type="text"
@@ -112,7 +114,7 @@ export default function ForgotPassword() {
                     maxLength={254}
                     value={email}
                     onChange={e => setEmail(sanitizeEmail(e.target.value))}
-                    placeholder="you@example.com"
+                    placeholder={t('forgotPassword.emailPlaceholder')}
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
                   />
                 </div>
@@ -128,14 +130,14 @@ export default function ForgotPassword() {
                   disabled={loading}
                   className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
                 >
-                  {loading ? 'Sending…' : 'Send reset link'}
+                  {loading ? t('forgotPassword.sending') : t('forgotPassword.sendResetLink')}
                 </button>
               </form>
 
               <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                Remember your password?{' '}
+                {t('forgotPassword.rememberPassword')}{' '}
                 <Link to="/login" className="text-brand-600 font-semibold hover:text-brand-700 transition dark:text-brand-400 dark:hover:text-brand-300">
-                  Sign in
+                  {t('forgotPassword.signIn')}
                 </Link>
               </p>
             </>

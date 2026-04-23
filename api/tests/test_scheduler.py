@@ -544,28 +544,34 @@ def test_send_alert_email_has_google_flights_button():
 
 
 # ---------------------------------------------------------------------------
-# _pax_label — unit tests
+# pax_label — unit tests (now in email_i18n)
 # ---------------------------------------------------------------------------
 
 def test_pax_label_adults_only():
-    from scheduler import _pax_label
-    assert _pax_label(1, []) == "1 adult"
-    assert _pax_label(2, []) == "2 adults"
+    from email_i18n import pax_label
+    assert pax_label("en", 1, []) == "1 adult"
+    assert pax_label("en", 2, []) == "2 adults"
 
 
 def test_pax_label_one_child():
-    from scheduler import _pax_label
-    assert _pax_label(2, [7]) == "2 adults, 1 child (age 7)"
+    from email_i18n import pax_label
+    assert pax_label("en", 2, [7]) == "2 adults, 1 child (age 7)"
 
 
 def test_pax_label_one_infant():
-    from scheduler import _pax_label
-    assert _pax_label(1, [1]) == "1 adult, 1 infant (age 1)"
+    from email_i18n import pax_label
+    assert pax_label("en", 1, [1]) == "1 adult, 1 infant (age 1)"
 
 
 def test_pax_label_multiple_children():
-    from scheduler import _pax_label
-    assert _pax_label(2, [3, 7]) == "2 adults, 2 children (ages 3, 7)"
+    from email_i18n import pax_label
+    assert pax_label("en", 2, [3, 7]) == "2 adults, 2 children (ages 3, 7)"
+
+
+def test_pax_label_dutch():
+    from email_i18n import pax_label
+    assert pax_label("nl", 2, []) == "2 volwassenen"
+    assert pax_label("nl", 1, [1]) == "1 volwassene, 1 baby (leeftijd 1)"
 
 
 # ---------------------------------------------------------------------------

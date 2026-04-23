@@ -15,25 +15,13 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
+from email_i18n import pax_label as _pax_label_i18n
+from email_i18n import t as _t
 from models import Route, RouteCheckLog
 from routers.flights import _cheapest_for_date, _search_date
 
 logger = logging.getLogger(__name__)
 _SMTP_TLS = os.getenv("SMTP_TLS", "true").lower() == "true"
-
-
-def _pax_label(adults: int, children_ages: list[int]) -> str:
-    """Human-readable passenger summary, e.g. '2 adults, 1 child (age 5)'."""
-    parts = [f"{adults} adult{'s' if adults != 1 else ''}"]
-    n = len(children_ages)
-    if n == 1:
-        age = children_ages[0]
-        kind = "infant" if age < 2 else "child"
-        parts.append(f"1 {kind} (age {age})")
-    elif n > 1:
-        ages_str = ", ".join(str(a) for a in children_ages)
-        parts.append(f"{n} children (ages {ages_str})")
-    return ", ".join(parts)
 
 
 def _google_flights_url(origin: str, destination: str, date_out: str, date_in: str | None = None) -> str:
@@ -46,13 +34,14 @@ def _google_flights_url(origin: str, destination: str, date_out: str, date_in: s
     return f"https://www.google.com/flights#flt={origin}.{destination}.{date_out};tt:o"
 
 
-def _flight_table_html(flights: list[dict], label: str, origin: str, destination: str, d) -> str:
+def _flight_table_html(flights: list[dict], label: str, origin: str, destination: str, d, lang: str = "en") -> str:
     rows = ""
     for i, f in enumerate(flights):
         time = f["departure_time"][11:16] if len(f["departure_time"]) >= 16 else f["departure_time"]
         badge = (
-            '<td style="padding:10px 12px;"><span style="background:#eff6ff;color:#2563eb;'
-            'font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">Best price</span></td>'
+            f'<td style="padding:10px 12px;"><span style="background:#eff6ff;color:#2563eb;'
+            f'font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">'
+            f'{_t(lang, "flight_best_price")}</span></td>'
             if i == 0 else '<td style="padding:10px 12px;"></td>'
         )
         bg = "#f8fafc" if i % 2 == 0 else "#ffffff"
@@ -75,11 +64,11 @@ def _flight_table_html(flights: list[dict], label: str, origin: str, destination
         f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
         f'text-transform:uppercase;letter-spacing:0.05em;"></th>'
         f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
-        f'text-transform:uppercase;letter-spacing:0.05em;">Flight</th>'
+        f'text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, "flight_col_flight")}</th>'
         f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
-        f'text-transform:uppercase;letter-spacing:0.05em;">Departs</th>'
+        f'text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, "flight_col_departs")}</th>'
         f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
-        f'text-transform:uppercase;letter-spacing:0.05em;">Price</th>'
+        f'text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, "flight_col_price")}</th>'
         f'</tr></thead>'
         f'<tbody>{rows}</tbody>'
         f'</table>'
@@ -105,11 +94,12 @@ def _send_alert_email(
     children_ages: list[int] | None = None,
     outbound_flights: list[dict] | None = None,
     inbound_flights: list[dict] | None = None,
+    lang: str = "en",
 ) -> None:
     host = os.getenv("SMTP_HOST")
     if not host:
         logger.info(
-            "[scheduler] Alert email (no SMTP): %s\u2192%s goal reached for %s",
+            "[scheduler] Alert email (no SMTP): %s→%s goal reached for %s",
             route.origin, route.destination, to_email,
         )
         return
@@ -127,75 +117,78 @@ def _send_alert_email(
     alert_price = route.alert_price
 
     if price_goal and avail_goal:
-        subject = f"Goal reached: {origin}\u2192{destination}"
+        subject = _t(lang, "alert_subject_both").format(origin=origin, dest=destination)
     elif price_goal:
-        price_str = f"\u20ac{total:.2f}" if total is not None else "target price"
-        subject = f"Price alert: {origin}\u2192{destination} is now {price_str}"
+        price_str = f"€{total:.2f}" if total is not None else "target price"
+        subject = _t(lang, "alert_subject_price").format(origin=origin, dest=destination, price=price_str)
     else:
-        subject = f"Flights available: {origin}\u2192{destination} on {date_from}"
+        subject = _t(lang, "alert_subject_avail").format(origin=origin, dest=destination, date=date_from)
 
-    # Passenger breakdown
     _children = children_ages or []
     passengers = adults_count + len(_children)
-    pax_label = _pax_label(adults_count, _children)
+    pax_label = _pax_label_i18n(lang, adults_count, _children)
 
-    # Build the "what triggered" section for HTML
     goal_lines_html = ""
     goal_lines_text = ""
     if price_goal and total is not None and alert_price is not None:
         per_person = total / passengers if passengers > 1 else None
         per_person_html = (
-            f' <span style="color:#6b7280;font-size:13px;">'
-            f'(&euro;{per_person:.2f} per person)</span>'
+            f' <span style="color:#6b7280;font-size:13px;">(&euro;{per_person:.2f} {_t(lang, "alert_per_person")})</span>'
         ) if per_person else ""
         goal_lines_html += (
             f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
-            f'<strong>Price goal reached</strong> &mdash; '
-            f'group total ({pax_label}): <strong>&euro;{total:.2f}</strong>{per_person_html} '
-            f'(your target: &euro;{float(alert_price):.2f})</p>'
+            f'<strong>{_t(lang, "alert_price_goal")}</strong> &mdash; '
+            f'{_t(lang, "alert_group_total")} ({pax_label}): <strong>&euro;{total:.2f}</strong>{per_person_html} '
+            f'({_t(lang, "alert_your_target")}: &euro;{float(alert_price):.2f})</p>'
         )
-        pp_text = f" (€{per_person:.2f} per person)" if per_person else ""
-        goal_lines_text += f"Price goal reached — group total ({pax_label}): €{total:.2f}{pp_text} (your target: €{float(alert_price):.2f})\n"
+        pp_text = f" (€{per_person:.2f} {_t(lang, 'alert_per_person')})" if per_person else ""
+        goal_lines_text += _t(lang, "alert_price_goal_plain").format(
+            pax=pax_label, total=f"{total:.2f}", pp=pp_text, target=f"{float(alert_price):.2f}"
+        ) + "\n"
     if avail_goal:
         goal_lines_html += (
             f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
-            f'<strong>Availability goal reached</strong> &mdash; outbound flights are now on sale.</p>'
+            f'<strong>{_t(lang, "alert_avail_goal")}</strong> &mdash; {_t(lang, "alert_avail_on_sale")}</p>'
         )
-        goal_lines_text += "Availability goal reached — outbound flights are now on sale.\n"
+        goal_lines_text += _t(lang, "alert_avail_goal_plain") + "\n"
 
     google_flights_url = _google_flights_url(origin, destination, str(date_from), str(date_to))
 
-    # Flight tables
     flights_html = ""
     flights_text = ""
     if outbound_flights:
-        flights_html += _flight_table_html(outbound_flights, "Outbound", origin, destination, date_from)
-        flights_text += _flight_table_text(outbound_flights, "Outbound", origin, destination, date_from) + "\n"
+        lbl_out = _t(lang, "alert_outbound").capitalize()
+        flights_html += _flight_table_html(outbound_flights, lbl_out, origin, destination, date_from, lang)
+        flights_text += _flight_table_text(outbound_flights, lbl_out, origin, destination, date_from) + "\n"
     if inbound_flights:
-        flights_html += _flight_table_html(inbound_flights, "Return", destination, origin, date_to)
-        flights_text += _flight_table_text(inbound_flights, "Return", destination, origin, date_to) + "\n"
+        lbl_in = _t(lang, "alert_return").capitalize()
+        flights_html += _flight_table_html(inbound_flights, lbl_in, destination, origin, date_to, lang)
+        flights_text += _flight_table_text(inbound_flights, lbl_in, destination, origin, date_to) + "\n"
     if outbound_flights and inbound_flights:
         cheapest_out = outbound_flights[0]["price"]
         cheapest_in = inbound_flights[0]["price"]
         cheapest_per_person = cheapest_out + cheapest_in
         cheapest_group = cheapest_per_person * passengers
         pp_note_html = (
-            f' <span style="color:#6b7280;font-size:13px;">(&euro;{cheapest_per_person:.2f} per person)</span>'
+            f' <span style="color:#6b7280;font-size:13px;">(&euro;{cheapest_per_person:.2f} {_t(lang, "alert_per_person")})</span>'
         ) if passengers > 1 else ""
         flights_html += (
             f'<p style="margin:0 0 24px;font-size:15px;color:#374151;">'
-            f'Cheapest combination ({pax_label}): '
-            f'<strong style="color:#1d4ed8;">&euro;{cheapest_out:.2f}</strong> outbound + '
-            f'<strong style="color:#1d4ed8;">&euro;{cheapest_in:.2f}</strong> return '
+            f'{_t(lang, "alert_cheapest_combo")} ({pax_label}): '
+            f'<strong style="color:#1d4ed8;">&euro;{cheapest_out:.2f}</strong> {_t(lang, "alert_outbound")} + '
+            f'<strong style="color:#1d4ed8;">&euro;{cheapest_in:.2f}</strong> {_t(lang, "alert_return")} '
             f'&times; {passengers} = '
-            f'<strong style="font-size:17px;color:#1d4ed8;">&euro;{cheapest_group:.2f}</strong> total'
+            f'<strong style="font-size:17px;color:#1d4ed8;">&euro;{cheapest_group:.2f}</strong> {_t(lang, "alert_total")}'
             f'{pp_note_html}</p>'
         )
-        pp_text = f" (€{cheapest_per_person:.2f} per person)" if passengers > 1 else ""
-        flights_text += f"Cheapest combination ({pax_label}): €{cheapest_out:.2f} + €{cheapest_in:.2f} × {passengers} = €{cheapest_group:.2f} total{pp_text}\n\n"
+        pp_text = f" (€{cheapest_per_person:.2f} {_t(lang, 'alert_per_person')})" if passengers > 1 else ""
+        flights_text += _t(lang, "alert_combo_plain").format(
+            pax=pax_label, out=f"{cheapest_out:.2f}", ret=f"{cheapest_in:.2f}",
+            n=passengers, group=f"{cheapest_group:.2f}", pp=pp_text
+        ) + "\n\n"
 
     html = f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="{lang}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -221,7 +214,7 @@ def _send_alert_email(
                 </tr>
               </table>
               <p style="margin:24px 0 0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2;">
-                We have found your flight!
+                {_t(lang, 'alert_found')}
               </p>
               <p style="margin:8px 0 0;color:#bfdbfe;font-size:15px;line-height:1.5;">
                 {origin} &rarr; {destination} &bull; {date_from} &ndash; {date_to}
@@ -242,14 +235,14 @@ def _send_alert_email(
                   <td style="background-color:#2563eb;border-radius:10px;">
                     <a href="{google_flights_url}"
                        style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
-                      Search on Google Flights
+                      {_t(lang, 'alert_search_gf')}
                     </a>
                   </td>
                   <td style="width:12px;"></td>
                   <td style="background-color:#e2e8f0;border-radius:10px;">
                     <a href="{frontend_url}"
                        style="display:inline-block;padding:14px 32px;color:#1e40af;font-size:15px;font-weight:600;text-decoration:none;">
-                      Search El Cheapo
+                      {_t(lang, 'alert_search_ec')}
                     </a>
                   </td>
                 </tr>
@@ -258,8 +251,7 @@ def _send_alert_email(
               <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
 
               <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
-                This route has been deactivated and will no longer trigger alerts.
-                You can save a new search at any time.
+                {_t(lang, 'alert_deactivated')}
               </p>
             </td>
           </tr>
@@ -281,13 +273,13 @@ def _send_alert_email(
 </html>"""
 
     plain = (
-        f"Your El Cheapo alert has been triggered!\n\n"
+        f"{_t(lang, 'alert_plain_intro')}\n\n"
         f"Route: {origin} → {destination}\n"
         f"Dates: {date_from} – {date_to}\n\n"
         f"{goal_lines_text}\n"
         f"{flights_text}"
-        f"This route has been deactivated and will no longer trigger alerts.\n"
-        f"You can save a new search at: {frontend_url}\n\n"
+        f"{_t(lang, 'alert_plain_deactivated')}\n"
+        f"{_t(lang, 'alert_plain_new_search')} {frontend_url}\n\n"
         f"— El Cheapo\n"
     )
 
@@ -317,11 +309,12 @@ def _send_expired_email(
     date_to,
     alert_price,
     notify_available: bool,
+    lang: str = "en",
 ) -> None:
     host = os.getenv("SMTP_HOST")
     if not host:
         logger.info(
-            "[scheduler] Expired email (no SMTP): %s\u2192%s unmet goal for %s",
+            "[scheduler] Expired email (no SMTP): %s→%s unmet goal for %s",
             origin, destination, to_email,
         )
         return
@@ -332,25 +325,27 @@ def _send_expired_email(
     from_addr = os.getenv("SMTP_FROM", smtp_user)
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
-    subject = f"Your search for {origin}\u2192{destination} has expired"
+    subject = _t(lang, "expired_subject").format(origin=origin, dest=destination)
 
     goal_lines_html = ""
     goal_lines_text = ""
     if alert_price is not None:
+        price_str = _t(lang, "expired_price_target").format(price=f"{float(alert_price):.2f}")
         goal_lines_html += (
             f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
-            f'Price target: <strong>&euro;{float(alert_price):.2f}</strong> combined return</p>'
+            f'{price_str}</p>'
         )
-        goal_lines_text += f"Price target: €{float(alert_price):.2f} combined return\n"
+        goal_lines_text += price_str + "\n"
     if notify_available:
+        avail_str = _t(lang, "expired_avail_alert")
         goal_lines_html += (
             f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
-            f'Availability alert: notify when any outbound flight appears</p>'
+            f'{avail_str}</p>'
         )
-        goal_lines_text += "Availability alert: notify when any outbound flight appears\n"
+        goal_lines_text += avail_str + "\n"
 
     html = f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="{lang}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -376,7 +371,7 @@ def _send_expired_email(
                 </tr>
               </table>
               <p style="margin:24px 0 0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2;">
-                Unfortunately, we could not find a flight that meets your criteria.
+                {_t(lang, 'expired_header')}
               </p>
               <p style="margin:8px 0 0;color:#bfdbfe;font-size:15px;line-height:1.5;">
                 {origin} &rarr; {destination} &bull; {date_from} &ndash; {date_to}
@@ -388,11 +383,10 @@ def _send_expired_email(
           <tr>
             <td style="background-color:#ffffff;padding:36px 40px;">
               <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
-                The departure date for your tracked route has now passed. Despite checking every hour,
-                no flight matching your criteria became available in time.
+                {_t(lang, 'expired_body')}
               </p>
 
-              <p style="margin:0 0 8px;color:#6b7280;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Your criteria</p>
+              <p style="margin:0 0 8px;color:#6b7280;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, 'expired_criteria')}</p>
               {goal_lines_html}
 
               <!-- CTA button -->
@@ -401,7 +395,7 @@ def _send_expired_email(
                   <td style="background-color:#2563eb;border-radius:10px;">
                     <a href="{frontend_url}"
                        style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
-                      Search for new flights
+                      {_t(lang, 'expired_button')}
                     </a>
                   </td>
                 </tr>
@@ -410,7 +404,7 @@ def _send_expired_email(
               <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
 
               <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
-                This saved search has been removed. You can set up a new alert at any time.
+                {_t(lang, 'expired_removed')}
               </p>
             </td>
           </tr>
@@ -432,12 +426,12 @@ def _send_expired_email(
 </html>"""
 
     plain = (
-        f"Unfortunately, we could not find a flight that meets your criteria.\n\n"
+        f"{_t(lang, 'expired_plain_intro')}\n\n"
         f"Route: {origin} → {destination}\n"
         f"Dates: {date_from} – {date_to}\n\n"
-        f"Your criteria:\n{goal_lines_text}\n"
-        f"The departure date has now passed. This saved search has been removed.\n"
-        f"You can set up a new alert at: {frontend_url}\n\n"
+        f"{_t(lang, 'expired_criteria')}:\n{goal_lines_text}\n"
+        f"{_t(lang, 'expired_plain_passed')}\n"
+        f"{_t(lang, 'expired_plain_new')} {frontend_url}\n\n"
         f"— El Cheapo\n"
     )
 
@@ -481,8 +475,8 @@ def expire_routes() -> int:
 
 
 def _expire_route(db: Session, route: Route) -> None:
-    # Capture values before deletion
     user_email = route.user.email if route.user else None
+    user_lang = getattr(route.user, "language", "en") if route.user else "en"
     origin = route.origin
     destination = route.destination
     date_from = route.date_from
@@ -495,12 +489,12 @@ def _expire_route(db: Session, route: Route) -> None:
     db.commit()
 
     logger.info(
-        "[scheduler] Expired %s\u2192%s (departure %s passed without goal met)",
+        "[scheduler] Expired %s→%s (departure %s passed without goal met)",
         origin, destination, date_from,
     )
 
     if user_email:
-        _send_expired_email(user_email, origin, destination, date_from, date_to, alert_price, notify_available)
+        _send_expired_email(user_email, origin, destination, date_from, date_to, alert_price, notify_available, lang=user_lang)
 
 
 def check_routes() -> int:
@@ -561,6 +555,7 @@ def _check_route(db: Session, route: Route) -> None:
 
         goal_reached = price_goal_reached or available_goal_reached
         user_email = route.user.email if route.user else None
+        user_lang = getattr(route.user, "language", "en") if route.user else "en"
 
         if goal_reached:
             route.is_active = False
@@ -578,6 +573,7 @@ def _check_route(db: Session, route: Route) -> None:
                 children_ages=children_ages,
                 outbound_flights=out_flights or None,
                 inbound_flights=in_flights or None,
+                lang=user_lang,
             )
 
         logger.info(

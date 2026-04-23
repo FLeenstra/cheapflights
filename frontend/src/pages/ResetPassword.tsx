@@ -1,9 +1,11 @@
 import { Plane } from 'lucide-react'
 import { FormEvent, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { sanitizeText } from '../lib/sanitize'
 
 export default function ResetPassword() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') ?? ''
@@ -19,11 +21,11 @@ export default function ResetPassword() {
     setError('')
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('resetPassword.errorPasswordMatch'))
       return
     }
     if (password.length < 8) {
-      setError('Password must be at least 8 characters')
+      setError(t('resetPassword.errorPasswordLength'))
       return
     }
 
@@ -35,11 +37,11 @@ export default function ResetPassword() {
         body: JSON.stringify({ token, password }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.detail ?? 'Reset failed')
+      if (!res.ok) throw new Error(data.detail ?? t('common.somethingWentWrong'))
       setDone(true)
       setTimeout(() => navigate('/login'), 3000)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(err instanceof Error ? err.message : t('common.somethingWentWrong'))
     } finally {
       setLoading(false)
     }
@@ -53,26 +55,26 @@ export default function ResetPassword() {
           <div className="bg-white/20 rounded-xl p-2">
             <Plane className="w-6 h-6 text-white" />
           </div>
-          <span className="text-xl font-bold tracking-tight">El Cheapo</span>
+          <span className="text-xl font-bold tracking-tight">{t('brand')}</span>
         </div>
 
         <div>
           <h1 className="text-4xl font-bold leading-tight mb-4">
-            Choose a new<br />password.
+            {t('resetPassword.headline')}
           </h1>
           <p className="text-brand-200 text-lg leading-relaxed">
-            Pick something strong and unique. You'll be signed in straight away after resetting.
+            {t('resetPassword.tagline')}
           </p>
         </div>
 
         <div className="flex items-center gap-4 text-brand-200 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-400" />
-            At least 8 characters
+            {t('resetPassword.atLeast8')}
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-brand-300" />
-            Single use link
+            {t('resetPassword.singleUseLink')}
           </div>
         </div>
       </div>
@@ -85,20 +87,20 @@ export default function ResetPassword() {
             <div className="bg-brand-600 rounded-xl p-2">
               <Plane className="w-5 h-5 text-white" />
             </div>
-            <span className="text-lg font-bold text-gray-900 dark:text-white">El Cheapo</span>
+            <span className="text-lg font-bold text-gray-900 dark:text-white">{t('brand')}</span>
           </div>
 
           {!token ? (
             <>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">Invalid link</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">{t('resetPassword.invalidLink')}</h2>
               <p className="text-gray-500 mb-8 dark:text-gray-400">
-                This reset link is missing or malformed. Please request a new one.
+                {t('resetPassword.invalidLinkSubtitle')}
               </p>
               <Link
                 to="/forgot-password"
                 className="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl transition"
               >
-                Request a new link
+                {t('resetPassword.requestNewLink')}
               </Link>
             </>
           ) : done ? (
@@ -108,26 +110,26 @@ export default function ResetPassword() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">Password updated</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">{t('resetPassword.passwordUpdated')}</h2>
               <p className="text-gray-500 mb-8 dark:text-gray-400">
-                Your password has been changed successfully. Redirecting you to sign in…
+                {t('resetPassword.passwordUpdatedSubtitle')}
               </p>
               <Link
                 to="/login"
                 className="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl transition"
               >
-                Sign in now
+                {t('resetPassword.signInNow')}
               </Link>
             </>
           ) : (
             <>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">Set new password</h2>
-              <p className="text-gray-500 mb-8 dark:text-gray-400">Choose a new password for your account.</p>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">{t('resetPassword.title')}</h2>
+              <p className="text-gray-500 mb-8 dark:text-gray-400">{t('resetPassword.subtitle')}</p>
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5 dark:text-gray-200">
-                    New password
+                    {t('resetPassword.newPasswordLabel')}
                   </label>
                   <input
                     type="password"
@@ -135,14 +137,14 @@ export default function ResetPassword() {
                     maxLength={128}
                     value={password}
                     onChange={e => setPassword(sanitizeText(e.target.value))}
-                    placeholder="At least 8 characters"
+                    placeholder={t('resetPassword.atLeast8')}
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5 dark:text-gray-200">
-                    Confirm new password
+                    {t('resetPassword.confirmPasswordLabel')}
                   </label>
                   <input
                     type="password"
@@ -166,7 +168,7 @@ export default function ResetPassword() {
                   disabled={loading}
                   className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
                 >
-                  {loading ? 'Updating…' : 'Update password'}
+                  {loading ? t('resetPassword.updating') : t('resetPassword.updatePassword')}
                 </button>
               </form>
             </>

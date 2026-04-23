@@ -14,6 +14,7 @@ router = APIRouter(prefix="/profile", tags=["profile"])
 
 _IATA_RE = re.compile(r"^[A-Z]{3}$")
 _VALID_THEMES = {"light", "dark", "system"}
+_VALID_LANGUAGES = {"en", "nl", "fr", "de", "pl", "it", "es", "pt"}
 
 
 class ProfileUpdate(BaseModel):
@@ -21,6 +22,7 @@ class ProfileUpdate(BaseModel):
     travel_adults: int = 1
     travel_children_birthdates: list[str] = []
     theme_preference: str = "system"
+    language: str = "en"
 
     @field_validator("default_origin")
     @classmethod
@@ -59,6 +61,13 @@ class ProfileUpdate(BaseModel):
             raise ValueError("theme must be light, dark, or system")
         return v
 
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, v):
+        if v not in _VALID_LANGUAGES:
+            raise ValueError(f"language must be one of: {', '.join(sorted(_VALID_LANGUAGES))}")
+        return v
+
 
 def _parse_birthdates(user: User) -> list[str]:
     try:
@@ -73,6 +82,7 @@ def _profile_dict(user: User) -> dict:
         "travel_adults": user.travel_adults,
         "travel_children_birthdates": _parse_birthdates(user),
         "theme_preference": user.theme_preference,
+        "language": user.language,
     }
 
 
@@ -94,5 +104,6 @@ def update_profile(
     current_user.travel_adults = data.travel_adults
     current_user.travel_children_birthdates = json.dumps(data.travel_children_birthdates)
     current_user.theme_preference = data.theme_preference
+    current_user.language = data.language
     db.commit()
     return _profile_dict(current_user)

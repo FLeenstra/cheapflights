@@ -47,6 +47,7 @@ class User(Base):
     travel_adults: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     travel_children_birthdates: Mapped[str] = mapped_column(String, nullable=False, default="[]", server_default="'[]'")
     theme_preference: Mapped[str] = mapped_column(String(10), nullable=False, default="system", server_default="system")
+    language: Mapped[str] = mapped_column(String(5), nullable=False, default="en", server_default="en")
 
     routes: Mapped[list["Route"]] = relationship("Route", back_populates="user")
 

@@ -135,7 +135,8 @@ class ResetPasswordRequest(BaseModel):
         return v
 
 
-def _send_reset_email(to_email: str, reset_url: str) -> None:
+def _send_reset_email(to_email: str, reset_url: str, lang: str = "en") -> None:
+    from email_i18n import t as _t
     host = os.getenv("SMTP_HOST")
     if not host:
         print(f"[password reset] {reset_url}", flush=True)
@@ -147,27 +148,25 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
     from_addr = os.getenv("SMTP_FROM", smtp_user)
 
     msg = EmailMessage()
-    msg["Subject"] = "Reset your El Cheapo password"
+    msg["Subject"] = _t(lang, "reset_subject")
     msg["From"] = from_addr
     msg["To"] = to_email
 
-    # Plain-text fallback
     msg.set_content(
         f"Hi,\n\n"
-        f"Someone requested a password reset for your El Cheapo account.\n\n"
-        f"Click the link below to set a new password (valid for 1 hour):\n\n"
+        f"{_t(lang, 'reset_plain_intro')}\n\n"
+        f"{_t(lang, 'reset_plain_link')}\n\n"
         f"{reset_url}\n\n"
-        f"If you didn't request this, you can safely ignore this email.\n\n"
+        f"{_t(lang, 'reset_plain_ignore')}\n\n"
         f"— El Cheapo\n"
     )
 
-    # HTML version
     msg.add_alternative(f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="{lang}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reset your El Cheapo password</title>
+  <title>{_t(lang, 'reset_subject')}</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
@@ -189,10 +188,10 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
                 </tr>
               </table>
               <p style="margin:24px 0 0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2;">
-                Reset your password
+                {_t(lang, 'reset_header')}
               </p>
               <p style="margin:8px 0 0;color:#bfdbfe;font-size:15px;line-height:1.5;">
-                We received a request to reset the password for your account.
+                {_t(lang, 'reset_subheader')}
               </p>
             </td>
           </tr>
@@ -201,7 +200,7 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
           <tr>
             <td style="background-color:#ffffff;padding:36px 40px;">
               <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
-                Click the button below to choose a new password. This link is valid for <strong>1 hour</strong> and can only be used once.
+                {_t(lang, 'reset_body')}
               </p>
 
               <!-- CTA button -->
@@ -210,7 +209,7 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
                   <td style="background-color:#2563eb;border-radius:10px;">
                     <a href="{reset_url}"
                        style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
-                      Set new password
+                      {_t(lang, 'reset_button')}
                     </a>
                   </td>
                 </tr>
@@ -218,7 +217,7 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
 
               <!-- Fallback URL -->
               <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">
-                If the button doesn't work, copy and paste this link into your browser:
+                {_t(lang, 'reset_fallback')}
               </p>
               <p style="margin:0 0 28px;word-break:break-all;">
                 <a href="{reset_url}" style="color:#2563eb;font-size:13px;text-decoration:none;">{reset_url}</a>
@@ -227,7 +226,7 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
               <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
 
               <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
-                If you didn't request a password reset, you can safely ignore this email — your password will not be changed.
+                {_t(lang, 'reset_ignore')}
               </p>
             </td>
           </tr>
@@ -324,7 +323,7 @@ def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session =
         db.commit()
 
         frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-        _send_reset_email(user.email, f"{frontend_url}/reset-password?token={token}")
+        _send_reset_email(user.email, f"{frontend_url}/reset-password?token={token}", lang=getattr(user, "language", "en"))
 
     # Always return the same response — never reveal whether an email is registered
     return {"message": "If that email is registered, you'll receive a reset link shortly."}
@@ -352,7 +351,8 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
     return {"message": "Password updated successfully"}
 
 
-def _send_delete_confirmation_email(to_email: str, confirm_url: str) -> None:
+def _send_delete_confirmation_email(to_email: str, confirm_url: str, lang: str = "en") -> None:
+    from email_i18n import t as _t
     host = os.getenv("SMTP_HOST")
     if not host:
         print(f"[account deletion] {confirm_url}", flush=True)
@@ -364,25 +364,26 @@ def _send_delete_confirmation_email(to_email: str, confirm_url: str) -> None:
     from_addr = os.getenv("SMTP_FROM", smtp_user)
 
     msg = EmailMessage()
-    msg["Subject"] = "Confirm your El Cheapo account deletion"
+    msg["Subject"] = _t(lang, "delete_subject")
     msg["From"] = from_addr
     msg["To"] = to_email
 
     msg.set_content(
         f"Hi,\n\n"
-        f"We received a request to permanently delete your El Cheapo account and all associated data.\n\n"
-        f"Click the link below to confirm (valid for 1 hour):\n\n"
+        f"{_t(lang, 'delete_plain_intro')}\n\n"
+        f"{_t(lang, 'delete_plain_link')}\n\n"
         f"{confirm_url}\n\n"
-        f"If you didn't request this, you can safely ignore this email — your account will not be deleted.\n\n"
+        f"{_t(lang, 'delete_plain_ignore')}\n\n"
         f"— El Cheapo\n"
     )
 
+    body1 = _t(lang, "delete_body1").format(email=to_email)
     msg.add_alternative(f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="{lang}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Confirm account deletion</title>
+  <title>{_t(lang, 'delete_subject')}</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
@@ -404,10 +405,10 @@ def _send_delete_confirmation_email(to_email: str, confirm_url: str) -> None:
                 </tr>
               </table>
               <p style="margin:24px 0 0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2;">
-                Confirm account deletion
+                {_t(lang, 'delete_header')}
               </p>
               <p style="margin:8px 0 0;color:#fecaca;font-size:15px;line-height:1.5;">
-                This action is permanent and cannot be undone.
+                {_t(lang, 'delete_subheader')}
               </p>
             </td>
           </tr>
@@ -416,10 +417,10 @@ def _send_delete_confirmation_email(to_email: str, confirm_url: str) -> None:
           <tr>
             <td style="background-color:#ffffff;padding:36px 40px;">
               <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-                We received a request to permanently delete your El Cheapo account (<strong>{to_email}</strong>) and all associated data, including your saved searches and alert history.
+                {body1}
               </p>
               <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
-                Click the button below to confirm. This link is valid for <strong>1 hour</strong> and can only be used once.
+                {_t(lang, 'delete_body2')}
               </p>
 
               <!-- CTA button -->
@@ -428,7 +429,7 @@ def _send_delete_confirmation_email(to_email: str, confirm_url: str) -> None:
                   <td style="background-color:#dc2626;border-radius:10px;">
                     <a href="{confirm_url}"
                        style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
-                      Delete my account
+                      {_t(lang, 'delete_button')}
                     </a>
                   </td>
                 </tr>
@@ -436,7 +437,7 @@ def _send_delete_confirmation_email(to_email: str, confirm_url: str) -> None:
 
               <!-- Fallback URL -->
               <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">
-                If the button doesn't work, copy and paste this link into your browser:
+                {_t(lang, 'delete_fallback')}
               </p>
               <p style="margin:0 0 28px;word-break:break-all;">
                 <a href="{confirm_url}" style="color:#dc2626;font-size:13px;text-decoration:none;">{confirm_url}</a>
@@ -445,7 +446,7 @@ def _send_delete_confirmation_email(to_email: str, confirm_url: str) -> None:
               <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
 
               <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
-                If you didn't request account deletion, you can safely ignore this email — your account will remain active.
+                {_t(lang, 'delete_ignore')}
               </p>
             </td>
           </tr>
@@ -501,7 +502,7 @@ def request_delete_account(
     db.commit()
 
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-    _send_delete_confirmation_email(current_user.email, f"{frontend_url}/delete-account?token={token}")
+    _send_delete_confirmation_email(current_user.email, f"{frontend_url}/delete-account?token={token}", lang=getattr(current_user, "language", "en"))
 
     return {"message": "A confirmation link has been sent to your email address."}
 

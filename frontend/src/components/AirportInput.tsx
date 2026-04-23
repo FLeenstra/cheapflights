@@ -1,5 +1,6 @@
 import { MapPin } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { airports, type Airport } from '../data/airports'
 import { sanitizeText } from '../lib/sanitize'
 
@@ -30,6 +31,7 @@ function rank(airport: Airport, query: string): number {
 }
 
 export default function AirportInput({ label, placeholder, value, onChange, allowedIata, loading }: Props) {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [highlighted, setHighlighted] = useState(0)
@@ -153,7 +155,7 @@ export default function AirportInput({ label, placeholder, value, onChange, allo
 
       {open && query.length >= 2 && results.length === 0 && (
         <div className="absolute z-50 mt-1.5 w-full bg-white border border-gray-100 rounded-xl shadow-lg px-4 py-3 text-sm text-gray-400 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-500">
-          No airports found for "{query}"
+          {t('airportInput.noResults', { query })}
         </div>
       )}
     </div>

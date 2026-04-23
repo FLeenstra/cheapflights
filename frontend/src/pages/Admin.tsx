@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight, Play, RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 
@@ -63,6 +64,7 @@ function usePagination<T>(items: T[], pageSize: number) {
 }
 
 function Pagination({ page, totalPages, setPage }: { page: number; totalPages: number; setPage: (p: number) => void }) {
+  const { t } = useTranslation()
   if (totalPages <= 1) return null
   return (
     <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
@@ -71,7 +73,7 @@ function Pagination({ page, totalPages, setPage }: { page: number; totalPages: n
         disabled={page === 1}
         className="px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition dark:border-gray-700 dark:hover:bg-gray-800"
       >
-        Prev
+        {t('admin.prev')}
       </button>
       <span className="text-xs">
         {page} / {totalPages}
@@ -81,13 +83,14 @@ function Pagination({ page, totalPages, setPage }: { page: number; totalPages: n
         disabled={page === totalPages}
         className="px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition dark:border-gray-700 dark:hover:bg-gray-800"
       >
-        Next
+        {t('admin.next')}
       </button>
     </div>
   )
 }
 
 export default function Admin() {
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [users, setUsers] = useState<AdminUser[]>([])
   const [logs, setLogs] = useState<CheckLog[]>([])
@@ -107,7 +110,7 @@ export default function Admin() {
         return r.json()
       })
       .then(data => { if (data) setUsers(data) })
-      .catch(() => setError('Failed to load users'))
+      .catch(() => setError(t('admin.failedToLoadUsers')))
       .finally(() => setLoadingUsers(false))
 
     fetch('/api/admin/logs', { credentials: 'include' })
@@ -115,7 +118,7 @@ export default function Admin() {
       .then(data => setLogs(data))
       .catch(() => {})
       .finally(() => setLoadingLogs(false))
-  }, [navigate])
+  }, [navigate, t])
 
   async function handleRunCheck() {
     setRunning(true)
@@ -124,12 +127,12 @@ export default function Admin() {
     try {
       const res = await fetch('/api/admin/run-check', { method: 'POST', credentials: 'include' })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.detail ?? 'Run failed')
+      if (!res.ok) throw new Error(data.detail ?? t('common.somethingWentWrong'))
       setRunResult(data)
       const logsRes = await fetch('/api/admin/logs', { credentials: 'include' })
       if (logsRes.ok) setLogs(await logsRes.json())
     } catch (err) {
-      setRunError(err instanceof Error ? err.message : 'Something went wrong')
+      setRunError(err instanceof Error ? err.message : t('common.somethingWentWrong'))
     } finally {
       setRunning(false)
     }
@@ -142,12 +145,12 @@ export default function Admin() {
       const res = await fetch(`/api/admin/users/${user.id}/make-admin`, { method, credentials: 'include' })
       if (!res.ok) {
         const data = await res.json()
-        setError(data.detail ?? 'Failed to update admin status')
+        setError(data.detail ?? t('admin.failedToUpdateAdmin'))
         return
       }
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_admin: !u.is_admin } : u))
     } catch {
-      setError('Failed to update admin status')
+      setError(t('admin.failedToUpdateAdmin'))
     } finally {
       setAdminTogglingId(null)
     }
@@ -166,7 +169,7 @@ export default function Admin() {
   }
 
   function fmtDate(iso: string) {
-    return new Date(iso).toLocaleString('en-GB', {
+    return new Date(iso).toLocaleString(i18n.language, {
       day: '2-digit', month: 'short', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
     })
@@ -191,14 +194,14 @@ export default function Admin() {
         {/* Header + run button */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Admin panel</h1>
-            <p className="text-gray-500 text-sm mt-0.5 dark:text-gray-400">Scheduler logs, users, and manual controls</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('admin.panel')}</h1>
+            <p className="text-gray-500 text-sm mt-0.5 dark:text-gray-400">{t('admin.panelSubtitle')}</p>
           </div>
 
           <div className="flex items-center gap-3">
             {runResult && (
               <span className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-2 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
-                Checked {runResult.routes_checked} route{runResult.routes_checked !== 1 ? 's' : ''}
+                {t('admin.checkComplete', { n: runResult.routes_checked, count: runResult.routes_checked })}
               </span>
             )}
             {runError && (
@@ -214,7 +217,7 @@ export default function Admin() {
               {running
                 ? <RefreshCw className="w-4 h-4 animate-spin" />
                 : <Play className="w-4 h-4" />}
-              {running ? 'Running…' : 'Run check now'}
+              {running ? t('admin.running') : t('admin.runCheck')}
             </button>
           </div>
         </div>
@@ -228,7 +231,7 @@ export default function Admin() {
         {/* Users */}
         <section>
           <h2 className="text-lg font-semibold text-gray-900 mb-3 dark:text-white">
-            Users
+            {t('admin.users')}
             {!loadingUsers && (
               <span className="ml-2 text-sm font-normal text-gray-400 dark:text-gray-500">{users.length}</span>
             )}
@@ -237,16 +240,16 @@ export default function Admin() {
             {loadingUsers ? (
               <div className="h-32 animate-pulse" />
             ) : users.length === 0 ? (
-              <p className="text-gray-400 text-sm p-8 text-center dark:text-gray-500">No users yet.</p>
+              <p className="text-gray-400 text-sm p-8 text-center dark:text-gray-500">{t('admin.noUsers')}</p>
             ) : (
               <>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 text-left text-gray-500 text-xs uppercase tracking-wide dark:border-gray-800 dark:text-gray-400">
-                      <th className="px-5 py-3">Email</th>
-                      <th className="px-5 py-3">Joined</th>
-                      <th className="px-5 py-3 text-right">Saved searches</th>
-                      <th className="px-5 py-3 text-center">Admin</th>
+                      <th className="px-5 py-3">{t('admin.colEmail')}</th>
+                      <th className="px-5 py-3">{t('admin.colJoined')}</th>
+                      <th className="px-5 py-3 text-right">{t('admin.colSavedSearches')}</th>
+                      <th className="px-5 py-3 text-center">{t('admin.colAdmin')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -262,7 +265,7 @@ export default function Admin() {
                         <td className="px-5 py-3 text-center">
                           {u.is_admin ? (
                             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-full px-2.5 py-0.5 dark:bg-brand-900/30 dark:border-brand-700 dark:text-brand-300">
-                              Admin
+                              {t('admin.adminBadge')}
                             </span>
                           ) : null}
                           <button
@@ -270,7 +273,7 @@ export default function Admin() {
                             disabled={adminTogglingId === u.id}
                             className={`ml-2 text-xs underline transition disabled:opacity-40 ${u.is_admin ? 'text-red-500 hover:text-red-700 dark:text-red-400' : 'text-gray-400 hover:text-brand-600 dark:hover:text-brand-400'}`}
                           >
-                            {adminTogglingId === u.id ? '…' : u.is_admin ? 'Revoke' : 'Make admin'}
+                            {adminTogglingId === u.id ? '…' : u.is_admin ? t('admin.revoke') : t('admin.makeAdmin')}
                           </button>
                         </td>
                       </tr>
@@ -290,11 +293,11 @@ export default function Admin() {
         {/* Scheduler logs */}
         <section>
           <h2 className="text-lg font-semibold text-gray-900 mb-3 dark:text-white">
-            Scheduler logs
+            {t('admin.logs')}
             {!loadingLogs && (
               <span className="ml-2 text-sm font-normal text-gray-400 dark:text-gray-500">
-                {runs.length} run{runs.length !== 1 ? 's' : ''}
-                {logs.length === 200 ? ' (last 200 entries)' : ''}
+                {t('admin.runCount', { n: runs.length, count: runs.length })}
+                {logs.length === 200 ? t('admin.last200') : ''}
               </span>
             )}
           </h2>
@@ -303,7 +306,7 @@ export default function Admin() {
               <div className="h-32 animate-pulse" />
             ) : runs.length === 0 ? (
               <p className="text-gray-400 text-sm p-8 text-center dark:text-gray-500">
-                No scheduler logs yet. Run the check or wait for the hourly job.
+                {t('admin.noLogsYet')}
               </p>
             ) : (
               <>
@@ -325,16 +328,16 @@ export default function Admin() {
                           {fmtDate(run.runTime)}
                         </span>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {run.logs.length} route{run.logs.length !== 1 ? 's' : ''} checked
+                          {t('admin.routesCount', { n: run.logs.length, count: run.logs.length })}
                         </span>
                         {goalsReached > 0 && (
                           <span className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
-                            {goalsReached} goal{goalsReached !== 1 ? 's' : ''} reached
+                            {t('admin.goalsReached', { n: goalsReached, count: goalsReached })}
                           </span>
                         )}
                         {errors > 0 && (
                           <span className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-                            {errors} error{errors !== 1 ? 's' : ''}
+                            {t('admin.errorsCount', { n: errors, count: errors })}
                           </span>
                         )}
                       </button>
@@ -345,14 +348,14 @@ export default function Admin() {
                           <table className="w-full text-sm">
                             <thead>
                               <tr className="bg-gray-50 text-left text-gray-500 text-xs uppercase tracking-wide dark:bg-gray-800 dark:text-gray-400">
-                                <th className="px-5 py-2.5">Route</th>
-                                <th className="px-5 py-2.5">Dates</th>
-                                <th className="px-5 py-2.5 text-right">Outbound</th>
-                                <th className="px-5 py-2.5 text-right">Inbound</th>
-                                <th className="px-5 py-2.5 text-right">Total</th>
-                                <th className="px-5 py-2.5 text-center">Price goal</th>
-                                <th className="px-5 py-2.5 text-center">Avail. goal</th>
-                                <th className="px-5 py-2.5">Error</th>
+                                <th className="px-5 py-2.5">{t('admin.colRoute')}</th>
+                                <th className="px-5 py-2.5">{t('admin.colDates')}</th>
+                                <th className="px-5 py-2.5 text-right">{t('admin.colOutbound')}</th>
+                                <th className="px-5 py-2.5 text-right">{t('admin.colInbound')}</th>
+                                <th className="px-5 py-2.5 text-right">{t('admin.colTotal')}</th>
+                                <th className="px-5 py-2.5 text-center">{t('admin.colPriceGoal')}</th>
+                                <th className="px-5 py-2.5 text-center">{t('admin.colAvailGoal')}</th>
+                                <th className="px-5 py-2.5">{t('admin.colError')}</th>
                               </tr>
                             </thead>
                             <tbody>

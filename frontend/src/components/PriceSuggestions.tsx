@@ -1,4 +1,5 @@
 import { TrendingDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 export interface Suggestion {
   offset: number
@@ -22,24 +23,25 @@ function shortDate(iso: string) {
   })
 }
 
-function offsetLabel(offset: number) {
-  if (offset === 0) return 'Selected'
-  return offset > 0 ? `+${offset}d` : `${offset}d`
-}
-
 export default function PriceSuggestions({ suggestions, currency, onSelect }: Props) {
+  const { t } = useTranslation()
   const selectedTotal = suggestions.find(s => s.is_selected)?.total ?? null
   const hasBetterOption = suggestions.some(s => !s.is_selected && s.total !== null && selectedTotal !== null && s.total < selectedTotal)
+
+  function offsetLabel(offset: number) {
+    if (offset === 0) return t('priceSuggestions.selected')
+    return offset > 0 ? `+${offset}d` : `${offset}d`
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6 dark:bg-gray-900 dark:border-gray-800">
       <div className="flex items-center gap-2 mb-4">
         <TrendingDown className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Price comparison ±3 days</h3>
-        <span className="text-xs text-gray-400 dark:text-gray-500">· same trip duration</span>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t('priceSuggestions.title')}</h3>
+        <span className="text-xs text-gray-400 dark:text-gray-500">· {t('priceSuggestions.sameDuration')}</span>
         {!hasBetterOption && selectedTotal !== null && (
           <span className="ml-auto text-xs text-green-600 font-semibold bg-green-50 px-2.5 py-1 rounded-full dark:text-green-400 dark:bg-green-900/20">
-            Best price window
+            {t('priceSuggestions.bestWindow')}
           </span>
         )}
       </div>
@@ -112,7 +114,7 @@ export default function PriceSuggestions({ suggestions, currency, onSelect }: Pr
       </div>
 
       <p className="text-xs text-gray-400 mt-3 dark:text-gray-500">
-        Total = cheapest outbound + cheapest return on each date pair
+        {t('priceSuggestions.totalNote')}
       </p>
     </div>
   )

@@ -31,6 +31,7 @@ class TestGetProfile:
         assert body["travel_adults"] == 1
         assert body["travel_children_birthdates"] == []
         assert body["theme_preference"] == "system"
+        assert body["language"] == "en"
 
     def test_requires_authentication(self, client):
         res = client.get("/profile/")
@@ -51,6 +52,7 @@ class TestUpdateProfile:
             "travel_adults": 2,
             "travel_children_birthdates": birthdates,
             "theme_preference": "dark",
+            "language": "nl",
         })
         assert res.status_code == 200
         body = res.json()
@@ -58,6 +60,7 @@ class TestUpdateProfile:
         assert body["travel_adults"] == 2
         assert body["travel_children_birthdates"] == birthdates
         assert body["theme_preference"] == "dark"
+        assert body["language"] == "nl"
 
     def test_persisted_on_subsequent_get(self, client):
         token = _register_and_token(client, "persist@test.com")
@@ -160,6 +163,26 @@ class TestUpdateProfile:
                 "travel_children_birthdates": [], "theme_preference": theme,
             })
             assert res.status_code == 200
+
+    def test_accepts_all_valid_languages(self, client):
+        token = _register_and_token(client, "langs@test.com")
+        for lang in ("en", "nl", "fr", "de", "pl", "it", "es", "pt"):
+            res = client.put("/profile/", headers=auth(token), json={
+                "default_origin": None, "travel_adults": 1,
+                "travel_children_birthdates": [], "theme_preference": "system",
+                "language": lang,
+            })
+            assert res.status_code == 200
+            assert res.json()["language"] == lang
+
+    def test_rejects_invalid_language(self, client):
+        token = _register_and_token(client, "badlang@test.com")
+        res = client.put("/profile/", headers=auth(token), json={
+            "default_origin": None, "travel_adults": 1,
+            "travel_children_birthdates": [], "theme_preference": "system",
+            "language": "xx",
+        })
+        assert res.status_code == 422
 
     def test_requires_authentication(self, client):
         res = client.put("/profile/", json={

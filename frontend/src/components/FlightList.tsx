@@ -1,5 +1,6 @@
 import { AlertCircle, ArrowRight, ExternalLink, Plane } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export interface Flight {
   flight_number: string
@@ -25,18 +26,6 @@ interface Props {
   error: string | null
   selectedFlight?: Flight | null
   onSelect?: (flight: Flight) => void
-}
-
-function formatDate(iso: string) {
-  return new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  })
-}
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-GB', {
-    hour: '2-digit', minute: '2-digit',
-  })
 }
 
 function buildDeeplink(flight: Flight, outboundDate?: string, inboundDate?: string) {
@@ -69,8 +58,23 @@ function isSelected(flight: Flight, selected?: Flight | null) {
 }
 
 export default function FlightList({ label, from, to, date, outboundDate, inboundDate, flights, error, selectedFlight, onSelect }: Props) {
+  const { t, i18n } = useTranslation()
   const cheapestPrice = flights.length > 0 ? flights[0].price : null
   const currency = flights.length > 0 ? flights[0].currency : null
+
+  function formatDate(iso: string) {
+    return new Date(iso + 'T12:00:00').toLocaleDateString(i18n.language, {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    })
+  }
+
+  function formatTime(iso: string) {
+    return new Date(iso).toLocaleTimeString(i18n.language, {
+      hour: '2-digit', minute: '2-digit',
+    })
+  }
+
+  const flightCountLabel = `${flights.length} ${flights.length !== 1 ? t('flightList.flights') : t('flightList.flight')}`
 
   return (
     <div>
@@ -87,8 +91,8 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
         </div>
         {cheapestPrice !== null && (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            from <span className="font-semibold text-brand-600 dark:text-brand-400">{currency} {cheapestPrice.toFixed(2)}</span>
-            <span className="text-gray-400 ml-1 dark:text-gray-600">per person · {flights.length} flight{flights.length !== 1 ? 's' : ''}</span>
+            {t('flightList.from')} <span className="font-semibold text-brand-600 dark:text-brand-400">{currency} {cheapestPrice.toFixed(2)}</span>
+            <span className="text-gray-400 ml-1 dark:text-gray-600">{t('flightList.perPerson')} · {flightCountLabel}</span>
           </p>
         )}
       </div>
@@ -98,7 +102,7 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
         <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 flex items-start gap-3 dark:bg-red-900/20 dark:border-red-800">
           <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0 dark:text-red-500" />
           <div>
-            <p className="text-sm font-medium text-red-700 dark:text-red-400">Could not load {label.toLowerCase()} flights</p>
+            <p className="text-sm font-medium text-red-700 dark:text-red-400">{t('flightList.couldNotLoad', { label: label.toLowerCase() })}</p>
             <p className="text-xs text-red-500 mt-0.5 dark:text-red-500">{error}</p>
           </div>
         </div>
@@ -110,10 +114,9 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-50 mb-4 dark:bg-brand-900/30">
             <Plane className="w-5 h-5 text-brand-300 dark:text-brand-500" />
           </div>
-          <p className="font-medium text-gray-900 mb-1 dark:text-white">No {label.toLowerCase()} flights on this date</p>
+          <p className="font-medium text-gray-900 mb-1 dark:text-white">{t('flightList.noFlights', { label: label.toLowerCase() })}</p>
           <p className="text-sm text-gray-400 dark:text-gray-500">
-            No flights found for this route on the selected date.
-            Check the price suggestions below for nearby dates.
+            {t('flightList.noFlightsHint')}
           </p>
         </div>
       )}
@@ -146,7 +149,7 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
                   </div>
                   {i === 0 && (
                     <span className="text-xs font-bold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full shrink-0 dark:text-brand-400 dark:bg-brand-900/30">
-                      Best price
+                      {t('flightList.bestPrice')}
                     </span>
                   )}
                   <div>
@@ -167,7 +170,7 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
                     <p className="text-xl font-bold text-gray-900 dark:text-white">
                       {flight.currency} {flight.price.toFixed(2)}
                     </p>
-                    <p className="text-xs text-gray-400 mt-0.5 dark:text-gray-600">per person · {flight.flight_number}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 dark:text-gray-600">{t('flightList.perPerson')} · {flight.flight_number}</p>
                   </div>
                   <div className="flex flex-col gap-1.5" onClick={e => e.stopPropagation()}>
                     <a
@@ -177,7 +180,7 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
                       className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 transition dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-200"
                     >
                       <ExternalLink className="w-3 h-3" />
-                      One-way
+                      {t('flightList.oneWay')}
                     </a>
                     {outboundDate && inboundDate && (
                       <a
@@ -187,7 +190,7 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
                         className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border border-brand-200 text-brand-600 hover:bg-brand-50 transition dark:border-brand-800 dark:text-brand-400 dark:hover:bg-brand-900/30"
                       >
                         <ExternalLink className="w-3 h-3" />
-                        Return
+                        {t('flightList.return')}
                       </a>
                     )}
                   </div>

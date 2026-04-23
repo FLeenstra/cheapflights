@@ -1,5 +1,6 @@
 import { ArrowRight, Bell, BellOff, CheckCircle2, Pencil, Radio, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import { airports } from '../data/airports'
@@ -20,33 +21,11 @@ interface SavedRoute {
   goal_reached_at: string | null
 }
 
-function paxSummary(route: SavedRoute): string {
-  const adults = route.adults_count ?? route.passengers
-  const children = route.children_ages ?? []
-  if (adults === 1 && children.length === 0) return ''
-  const parts = [`${adults} adult${adults !== 1 ? 's' : ''}`]
-  const n = children.length
-  if (n === 1) {
-    const age = children[0]
-    parts.push(`1 ${age < 2 ? 'infant' : 'child'} (age ${age})`)
-  } else if (n > 1) {
-    parts.push(`${n} children (ages ${children.join(', ')})`)
-  }
-  return parts.join(', ')
-}
-
 type SortKey = 'newest' | 'oldest' | 'origin' | 'destination' | 'departure'
 type AlertFilter = 'all' | 'price' | 'available' | 'none'
 
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: 'newest',      label: 'Newest first' },
-  { value: 'oldest',      label: 'Oldest first' },
-  { value: 'departure',   label: 'Departure date' },
-  { value: 'origin',      label: 'Origin A → Z' },
-  { value: 'destination', label: 'Destination A → Z' },
-]
-
 export default function SavedSearches() {
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [routes, setRoutes] = useState<SavedRoute[]>([])
   const [loading, setLoading] = useState(true)
@@ -54,6 +33,29 @@ export default function SavedSearches() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<SortKey>('departure')
   const [alertFilter, setAlertFilter] = useState<AlertFilter>('all')
+
+  const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+    { value: 'newest',      label: t('savedSearches.sortNewest') },
+    { value: 'oldest',      label: t('savedSearches.sortOldest') },
+    { value: 'departure',   label: t('savedSearches.sortDeparture') },
+    { value: 'origin',      label: t('savedSearches.sortOrigin') },
+    { value: 'destination', label: t('savedSearches.sortDestination') },
+  ]
+
+  function paxSummary(route: SavedRoute): string {
+    const adults = route.adults_count ?? route.passengers
+    const children = route.children_ages ?? []
+    if (adults === 1 && children.length === 0) return ''
+    const parts = [`${adults} ${adults !== 1 ? t('savedSearches.adults') : t('savedSearches.adult')}`]
+    const n = children.length
+    if (n === 1) {
+      const age = children[0]
+      parts.push(`1 ${age < 2 ? t('savedSearches.infant') : t('savedSearches.child')} (${t('savedSearches.age')} ${age})`)
+    } else if (n > 1) {
+      parts.push(`${n} ${t('savedSearches.children')} (${t('savedSearches.ages')} ${children.join(', ')})`)
+    }
+    return parts.join(', ')
+  }
 
   useEffect(() => {
     fetch('/api/routes/', { credentials: 'include' })
@@ -67,9 +69,9 @@ export default function SavedSearches() {
       .then(data => {
         if (data) setRoutes(data)
       })
-      .catch(() => setError('Failed to load saved searches'))
+      .catch(() => setError(t('savedSearches.loadError')))
       .finally(() => setLoading(false))
-  }, [navigate])
+  }, [navigate, t])
 
   function handleSearch(route: SavedRoute) {
     const originAirport = airports.find(a => a.iata === route.origin)
@@ -122,7 +124,7 @@ export default function SavedSearches() {
       if (!res.ok) throw new Error('Delete failed')
       setRoutes(prev => prev.filter(r => r.id !== id))
     } catch {
-      setError('Failed to delete the search. Please try again.')
+      setError(t('savedSearches.deleteError'))
     } finally {
       setDeletingId(null)
     }
@@ -148,15 +150,22 @@ export default function SavedSearches() {
     return list
   }, [routes, sortBy, alertFilter])
 
+  const ALERT_FILTERS: { value: AlertFilter; label: string }[] = [
+    { value: 'all',       label: t('savedSearches.filterAll') },
+    { value: 'price',     label: t('savedSearches.filterPrice') },
+    { value: 'available', label: t('savedSearches.filterAvailable') },
+    { value: 'none',      label: t('savedSearches.filterNone') },
+  ]
+
   return (
     <div className="min-h-screen bg-brand-50 dark:bg-gray-950">
       <Navbar />
 
       <div className="max-w-5xl mx-auto px-6 py-10">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1 dark:text-white">Saved searches</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1 dark:text-white">{t('savedSearches.title')}</h1>
           <p className="text-gray-500 text-sm dark:text-gray-400">
-            Routes you're tracking. Set a target price when saving a search to get alerted when fares drop below it.
+            {t('savedSearches.subtitle')}
           </p>
         </div>
 
@@ -189,12 +198,7 @@ export default function SavedSearches() {
 
             {/* Alert filter */}
             <div className="flex rounded-xl border border-gray-200 bg-white overflow-hidden text-sm dark:border-gray-700 dark:bg-gray-800">
-              {([
-                { value: 'all',       label: 'All' },
-                { value: 'price',     label: 'Price alert' },
-                { value: 'available', label: 'Availability' },
-                { value: 'none',      label: 'No alert' },
-              ] as { value: AlertFilter; label: string }[]).map(f => (
+              {ALERT_FILTERS.map(f => (
                 <button
                   key={f.value}
                   onClick={() => setAlertFilter(f.value)}
@@ -217,16 +221,16 @@ export default function SavedSearches() {
 
         {!loading && routes.length === 0 && !error && (
           <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center dark:bg-gray-900 dark:border-gray-800">
-            <p className="text-gray-400 text-sm dark:text-gray-500">No saved searches yet.</p>
+            <p className="text-gray-400 text-sm dark:text-gray-500">{t('savedSearches.empty')}</p>
             <p className="text-gray-400 text-sm mt-1 dark:text-gray-500">
-              Use the <span className="font-medium text-gray-600 dark:text-gray-400">Start route search</span> option on the Search page to save a route.
+              {t('savedSearches.emptyHint', { link: t('savedSearches.emptyHintLink') })}
             </p>
           </div>
         )}
 
         {!loading && visibleRoutes.length === 0 && routes.length > 0 && !error && (
           <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center dark:bg-gray-900 dark:border-gray-800">
-            <p className="text-gray-400 text-sm dark:text-gray-500">No searches match the current filter.</p>
+            <p className="text-gray-400 text-sm dark:text-gray-500">{t('savedSearches.noMatch')}</p>
           </div>
         )}
 
@@ -235,7 +239,7 @@ export default function SavedSearches() {
             {visibleRoutes.map(route => {
               const goalReached = route.goal_reached_at !== null
               const goalDate = goalReached
-                ? new Date(route.goal_reached_at!).toLocaleString('en-GB', {
+                ? new Date(route.goal_reached_at!).toLocaleString(i18n.language, {
                     day: '2-digit', month: 'short', year: 'numeric',
                     hour: '2-digit', minute: '2-digit',
                   })
@@ -268,19 +272,19 @@ export default function SavedSearches() {
                       {route.alert_price !== null && (
                         <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${goalReached ? 'text-gray-400 bg-gray-50 dark:text-gray-600 dark:bg-gray-800' : 'text-brand-700 bg-brand-50 dark:text-brand-400 dark:bg-brand-900/30'}`}>
                           <Bell className="w-3.5 h-3.5" />
-                          Max €{route.alert_price}
+                          {t('savedSearches.maxPrice', { price: route.alert_price })}
                         </div>
                       )}
                       {route.notify_available && (
                         <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium ${goalReached ? 'text-gray-400 bg-gray-50 dark:text-gray-600 dark:bg-gray-800' : 'text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/20'}`}>
                           <Radio className="w-3.5 h-3.5" />
-                          Availability
+                          {t('savedSearches.availability')}
                         </div>
                       )}
                       {route.alert_price === null && !route.notify_available && (
                         <div className="flex items-center gap-1.5 text-gray-400 px-3 py-1.5 dark:text-gray-600">
                           <BellOff className="w-3.5 h-3.5" />
-                          No alert
+                          {t('savedSearches.noAlert')}
                         </div>
                       )}
                     </div>
@@ -288,7 +292,7 @@ export default function SavedSearches() {
                     {/* Edit */}
                     <button
                       onClick={() => handleEdit(route)}
-                      aria-label="Edit saved search"
+                      aria-label={t('savedSearches.editLabel')}
                       className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition dark:text-gray-600 dark:hover:text-brand-400 dark:hover:bg-brand-900/20"
                     >
                       <Pencil className="w-4 h-4" />
@@ -298,7 +302,7 @@ export default function SavedSearches() {
                     <button
                       onClick={() => handleDelete(route.id)}
                       disabled={deletingId === route.id}
-                      aria-label="Delete saved search"
+                      aria-label={t('savedSearches.deleteLabel')}
                       className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed transition dark:text-gray-600 dark:hover:text-red-400 dark:hover:bg-red-900/20"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -309,7 +313,7 @@ export default function SavedSearches() {
                   {goalReached && (
                     <div className="flex items-center gap-2 bg-green-50 border-t border-green-100 px-6 py-2.5 text-sm text-green-700 font-medium dark:bg-green-900/20 dark:border-green-900 dark:text-green-400">
                       <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      Goal reached · {goalDate}
+                      {t('savedSearches.goalReached', { date: goalDate })}
                     </div>
                   )}
                 </div>

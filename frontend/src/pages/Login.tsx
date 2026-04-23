@@ -1,10 +1,12 @@
 import { Plane } from 'lucide-react'
 import { FormEvent, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getApiError, getNetworkError } from '../lib/apiError'
 import { sanitizeEmail, sanitizeText } from '../lib/sanitize'
 
 export default function Login() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const accountDeleted = (location.state as { accountDeleted?: boolean } | null)?.accountDeleted ?? false
@@ -24,7 +26,7 @@ export default function Login() {
         credentials: 'include',
         body: JSON.stringify({ email, password }),
       })
-      if (!res.ok) throw new Error(await getApiError(res, 'Login failed.'))
+      if (!res.ok) throw new Error(await getApiError(res, t('common.somethingWentWrong')))
       navigate('/search')
     } catch (err: unknown) {
       setError(getNetworkError(err))
@@ -41,30 +43,30 @@ export default function Login() {
           <div className="bg-white/20 rounded-xl p-2">
             <Plane className="w-6 h-6 text-white" />
           </div>
-          <span className="text-xl font-bold tracking-tight">El Cheapo</span>
+          <span className="text-xl font-bold tracking-tight">{t('brand')}</span>
         </div>
 
         <div>
           <h1 className="text-4xl font-bold leading-tight mb-4">
-            Track the best<br />Ryanair deals<br />automatically.
+            {t('login.headline')}
           </h1>
           <p className="text-brand-200 text-lg leading-relaxed">
-            Set your routes, define a price threshold and we'll alert you the moment a cheap seat appears.
+            {t('login.tagline')}
           </p>
         </div>
 
         <div className="flex items-center gap-4 text-brand-200 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-green-400" />
-            Checked hourly
+            {t('login.checkedHourly')}
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-brand-300" />
-            Price history
+            {t('login.priceHistory')}
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-brand-300" />
-            Instant alerts
+            {t('login.instantAlerts')}
           </div>
         </div>
       </div>
@@ -77,22 +79,22 @@ export default function Login() {
             <div className="bg-brand-600 rounded-xl p-2">
               <Plane className="w-5 h-5 text-white" />
             </div>
-            <span className="text-lg font-bold text-gray-900 dark:text-white">El Cheapo</span>
+            <span className="text-lg font-bold text-gray-900 dark:text-white">{t('brand')}</span>
           </div>
 
-          <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">Welcome back</h2>
-          <p className="text-gray-500 mb-8 dark:text-gray-400">Sign in to your account to continue</p>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2 dark:text-white">{t('login.welcomeBack')}</h2>
+          <p className="text-gray-500 mb-8 dark:text-gray-400">{t('login.subtitle')}</p>
 
           {accountDeleted && (
             <div className="mb-6 bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
-              Your account has been permanently deleted. Sorry to see you go.
+              {t('login.accountDeleted')}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5 dark:text-gray-200">
-                Email address
+                {t('login.emailLabel')}
               </label>
               <input
                 type="text"
@@ -100,14 +102,14 @@ export default function Login() {
                 maxLength={254}
                 value={email}
                 onChange={e => setEmail(sanitizeEmail(e.target.value))}
-                placeholder="you@example.com"
+                placeholder={t('login.emailPlaceholder')}
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent transition dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5 dark:text-gray-200">
-                Password
+                {t('login.passwordLabel')}
               </label>
               <input
                 type="password"
@@ -128,7 +130,7 @@ export default function Login() {
 
             <div className="flex justify-end">
               <Link to="/forgot-password" className="text-sm text-brand-600 hover:text-brand-700 transition dark:text-brand-400 dark:hover:text-brand-300">
-                Forgot password?
+                {t('login.forgotPassword')}
               </Link>
             </div>
 
@@ -137,14 +139,14 @@ export default function Login() {
               disabled={loading}
               className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
             >
-              {loading ? 'Signing in…' : 'Sign in'}
+              {loading ? t('login.signingIn') : t('login.signIn')}
             </button>
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-            Don't have an account?{' '}
+            {t('login.noAccount')}{' '}
             <Link to="/register" className="text-brand-600 font-semibold hover:text-brand-700 transition dark:text-brand-400 dark:hover:text-brand-300">
-              Create one
+              {t('login.createOne')}
             </Link>
           </p>
         </div>

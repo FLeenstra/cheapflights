@@ -77,6 +77,7 @@ def startup():
         conn.execute(text("ALTER TABLE routes ADD COLUMN IF NOT EXISTS adults_count INTEGER"))
         conn.execute(text("ALTER TABLE routes ADD COLUMN IF NOT EXISTS children_ages TEXT NOT NULL DEFAULT '[]'"))
         conn.execute(text("UPDATE routes SET adults_count = passengers WHERE adults_count IS NULL"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(5) NOT NULL DEFAULT 'en'"))
         conn.execute(text(
             "CREATE TABLE IF NOT EXISTS account_deletion_tokens ("
             "id UUID PRIMARY KEY DEFAULT gen_random_uuid(), "
