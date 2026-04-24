@@ -79,7 +79,7 @@ describe('AirportInput', () => {
   it('displays selected airport value when closed', () => {
     const selected = { iata: 'DUB', name: 'Dublin Airport', city: 'Dublin', country: 'Ireland', countryCode: 'IE' }
     render(<AirportInput {...baseProps} value={selected} />)
-    const input = screen.getByDisplayValue('Dublin (DUB)')
+    const input = screen.getByDisplayValue('Dublin Airport (DUB)')
     expect(input).toBeInTheDocument()
   })
 
@@ -134,7 +134,7 @@ describe('AirportInput', () => {
   it('pre-fills query with city name when a value is already selected and the input is focused', () => {
     const selected = { iata: 'DUB', name: 'Dublin Airport', city: 'Dublin', country: 'Ireland', countryCode: 'IE' }
     render(<AirportInput {...baseProps} value={selected} />)
-    const input = screen.getByDisplayValue('Dublin (DUB)')
+    const input = screen.getByDisplayValue('Dublin Airport (DUB)')
     fireEvent.focus(input)
     expect((input as HTMLInputElement).value).toBe('Dublin')
   })
@@ -142,7 +142,7 @@ describe('AirportInput', () => {
   it('shows matching dropdown results when focusing a pre-filled input', () => {
     const selected = { iata: 'DUB', name: 'Dublin Airport', city: 'Dublin', country: 'Ireland', countryCode: 'IE' }
     render(<AirportInput {...baseProps} value={selected} />)
-    const input = screen.getByDisplayValue('Dublin (DUB)')
+    const input = screen.getByDisplayValue('Dublin Airport (DUB)')
     fireEvent.focus(input)
     // Multiple airports share city "Dublin" — verify by unique IATA badge
     expect(screen.getByText('DUB')).toBeInTheDocument()

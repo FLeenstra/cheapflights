@@ -19,6 +19,7 @@ EMAIL_DARK_STYLE = """<style type="text/css">
     .em-badge { background: #1e3a8a !important; color: #93c5fd !important; }
     .em-link  { color: #60a5fa !important; }
     .em-sec   { background-color: #334155 !important; }
+    .em-fcard { background-color: #2d3f55 !important; }
   }
 </style>"""
 

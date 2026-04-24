@@ -94,7 +94,7 @@ export default function AirportInput({ label, placeholder, value, onChange, allo
   // Reset highlight when results change
   useEffect(() => setHighlighted(0), [query])
 
-  const displayValue = value ? `${value.city} (${value.iata})` : ''
+  const displayValue = value ? `${value.name || value.city} (${value.iata})` : ''
 
   function countryLabel(airport: Airport): string {
     const localized = airport.countryCode ? localCountry(airport.countryCode, locale) : ''

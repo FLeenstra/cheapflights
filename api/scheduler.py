@@ -25,6 +25,15 @@ logger = logging.getLogger(__name__)
 _SMTP_TLS = os.getenv("SMTP_TLS", "true").lower() == "true"
 
 
+def _airport_name(iata: str) -> str:
+    """Full airport name from fli, falls back to IATA code."""
+    try:
+        from fli.models import Airport
+        return Airport[iata].value
+    except Exception:
+        return iata
+
+
 def _google_flights_url(origin: str, destination: str, date_out: str, date_in: str | None = None) -> str:
     if date_in:
         return (
@@ -36,52 +45,68 @@ def _google_flights_url(origin: str, destination: str, date_out: str, date_in: s
 
 
 def _flight_table_html(flights: list[dict], label: str, origin: str, destination: str, d, lang: str = "en") -> str:
-    rows = ""
+    origin_full = flights[0].get("origin_full", _airport_name(origin)) if flights else _airport_name(origin)
+    dest_full   = flights[0].get("destination_full", _airport_name(destination)) if flights else _airport_name(destination)
+
+    cards = ""
     for i, f in enumerate(flights):
-        time = f["departure_time"][11:16] if len(f["departure_time"]) >= 16 else f["departure_time"]
-        badge = (
-            f'<td style="padding:10px 12px;"><span class="em-badge" style="background:#eff6ff;color:#2563eb;'
-            f'font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">'
-            f'{_t(lang, "flight_best_price")}</span></td>'
-            if i == 0 else '<td style="padding:10px 12px;"></td>'
-        )
-        row_cls = "em-r0" if i % 2 == 0 else "em-r1"
-        bg = "#f8fafc" if i % 2 == 0 else "#ffffff"
-        rows += (
-            f'<tr class="{row_cls}" style="background:{bg};">'
-            f'{badge}'
-            f'<td class="em-td" style="padding:10px 12px;font-size:14px;color:#374151;">{f.get("airline", "")}</td>'
-            f'<td class="em-td" style="padding:10px 12px;font-size:14px;color:#374151;">{f["flight_number"]}</td>'
-            f'<td class="em-td" style="padding:10px 12px;font-size:14px;color:#374151;">{time}</td>'
-            f'<td class="em-price" style="padding:10px 12px;font-size:14px;font-weight:700;color:#1d4ed8;">'
-            f'&euro;{f["price"]:.2f}</td>'
+        time        = f["departure_time"][11:16] if len(f["departure_time"]) >= 16 else f["departure_time"]
+        airline     = f.get("airline", "")
+        f_orig      = f.get("origin", origin)
+        f_dest      = f.get("destination", destination)
+        f_orig_full = f.get("origin_full", origin_full)
+        f_dest_full = f.get("destination_full", dest_full)
+        border      = "2px solid #bfdbfe" if i == 0 else "1px solid #e5e7eb"
+
+        badge_html = (
+            f'<span class="em-badge" style="display:inline-block;background:#eff6ff;color:#2563eb;'
+            f'font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:6px;">'
+            f'{_t(lang, "flight_best_price")}</span><br/>'
+        ) if i == 0 else ''
+
+        cards += (
+            f'<table class="em-fcard em-tbl" width="100%" cellpadding="0" cellspacing="0" '
+            f'style="border:{border};border-radius:16px;overflow:hidden;margin-bottom:8px;background:#ffffff;">'
+            f'<tr>'
+            # Left: badge + airline
+            f'<td class="em-fcard" width="120" style="background:#ffffff;padding:14px 16px;vertical-align:middle;">'
+            f'{badge_html}'
+            f'<span class="em-td" style="font-size:13px;font-weight:600;color:#374151;">{airline}</span>'
+            f'</td>'
+            # Middle: IATA → IATA + time (large), full names (small)
+            f'<td class="em-fcard" style="background:#ffffff;padding:14px 16px;vertical-align:middle;">'
+            f'<p class="em-td" style="margin:0;font-size:15px;font-weight:600;color:#111827;">'
+            f'{f_orig} &rarr; {f_dest}'
+            f'<span class="em-sub" style="font-weight:400;font-size:13px;color:#6b7280;margin-left:8px;">{time}</span>'
+            f'</p>'
+            f'<p class="em-muted" style="margin:4px 0 0;font-size:12px;color:#9ca3af;">'
+            f'{f_orig_full} &rarr; {f_dest_full}'
+            f'</p>'
+            f'</td>'
+            # Right: price + flight number
+            f'<td class="em-fcard" style="background:#ffffff;padding:14px 16px;vertical-align:middle;'
+            f'text-align:right;white-space:nowrap;">'
+            f'<p class="em-price" style="margin:0;font-size:18px;font-weight:700;color:#1d4ed8;">&euro;{f["price"]:.2f}</p>'
+            f'<p class="em-muted" style="margin:3px 0 0;font-size:11px;color:#9ca3af;">{f["flight_number"]}</p>'
+            f'</td>'
             f'</tr>'
+            f'</table>'
         )
-    return (
-        f'<p class="em-sub" style="margin:0 0 8px;color:#6b7280;font-size:12px;font-weight:700;'
-        f'text-transform:uppercase;letter-spacing:0.05em;">'
-        f'{label} &mdash; {origin} &rarr; {destination} &mdash; {d}</p>'
-        f'<table class="em-tbl" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;'
-        f'border-radius:8px;overflow:hidden;margin-bottom:24px;">'
-        f'<thead><tr class="em-thead" style="background:#f1f5f9;">'
-        f'<th class="em-th" style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
-        f'text-transform:uppercase;letter-spacing:0.05em;"></th>'
-        f'<th class="em-th" style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
-        f'text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, "flight_col_airline")}</th>'
-        f'<th class="em-th" style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
-        f'text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, "flight_col_flight")}</th>'
-        f'<th class="em-th" style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
-        f'text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, "flight_col_departs")}</th>'
-        f'<th class="em-th" style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
-        f'text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, "flight_col_price")}</th>'
-        f'</tr></thead>'
-        f'<tbody>{rows}</tbody>'
-        f'</table>'
+
+    header = (
+        f'<p class="em-sub" style="margin:0 0 3px;font-size:11px;font-weight:700;color:#6b7280;'
+        f'text-transform:uppercase;letter-spacing:0.08em;">{label}</p>'
+        f'<p class="em-text" style="margin:0 0 2px;font-size:15px;font-weight:600;color:#374151;">'
+        f'{origin_full} &rarr; {dest_full}</p>'
+        f'<p class="em-muted" style="margin:0 0 14px;font-size:12px;color:#9ca3af;">{d}</p>'
     )
+    return header + cards + '<div style="margin-bottom:16px;"></div>'
 
 
 def _flight_table_text(flights: list[dict], label: str, origin: str, destination: str, d) -> str:
-    lines = [f"{label} — {origin} → {destination} — {d}"]
+    origin_full = flights[0].get("origin_full", _airport_name(origin)) if flights else _airport_name(origin)
+    dest_full   = flights[0].get("destination_full", _airport_name(destination)) if flights else _airport_name(destination)
+    lines = [f"{label} — {origin_full} → {dest_full} — {d}"]
     for i, f in enumerate(flights):
         time = f["departure_time"][11:16] if len(f["departure_time"]) >= 16 else f["departure_time"]
         prefix = "★ " if i == 0 else "  "
@@ -225,8 +250,11 @@ def _send_alert_email(
               <p style="margin:24px 0 0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2;">
                 {_t(lang, 'alert_found')}
               </p>
-              <p style="margin:8px 0 0;color:#bfdbfe;font-size:15px;line-height:1.5;">
-                {origin} &rarr; {destination} &bull; {date_from} &ndash; {date_to}
+              <p style="margin:8px 0 0;color:#bfdbfe;font-size:16px;font-weight:600;line-height:1.4;">
+                {_airport_name(origin)} &rarr; {_airport_name(destination)}
+              </p>
+              <p style="margin:4px 0 0;color:#bfdbfe;font-size:13px;line-height:1.5;">
+                {origin} &ndash; {destination} &bull; {date_from} &ndash; {date_to}
               </p>
             </td>
           </tr>
@@ -385,8 +413,11 @@ def _send_expired_email(
               <p style="margin:24px 0 0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.2;">
                 {_t(lang, 'expired_header')}
               </p>
-              <p style="margin:8px 0 0;color:#bfdbfe;font-size:15px;line-height:1.5;">
-                {origin} &rarr; {destination} &bull; {date_from} &ndash; {date_to}
+              <p style="margin:8px 0 0;color:#bfdbfe;font-size:16px;font-weight:600;line-height:1.4;">
+                {_airport_name(origin)} &rarr; {_airport_name(destination)}
+              </p>
+              <p style="margin:4px 0 0;color:#bfdbfe;font-size:13px;line-height:1.5;">
+                {origin} &ndash; {destination} &bull; {date_from} &ndash; {date_to}
               </p>
             </td>
           </tr>

@@ -543,6 +543,19 @@ def test_send_alert_email_has_google_flights_button():
     assert "DUB.BCN" in html
 
 
+def test_send_alert_email_header_shows_full_airport_names():
+    html = _get_alert_email_html([_MOCK_FLIGHT_OUT], [_MOCK_FLIGHT_IN])
+    assert "Dublin Airport" in html
+    assert "Barcelona" in html  # fli name contains Barcelona
+
+
+def test_send_alert_email_flight_cards_show_full_origin_destination():
+    html = _get_alert_email_html([_MOCK_FLIGHT_OUT], [_MOCK_FLIGHT_IN])
+    # origin_full / destination_full from mock flights
+    assert _MOCK_FLIGHT_OUT["origin_full"] in html
+    assert _MOCK_FLIGHT_OUT["destination_full"] in html
+
+
 def test_send_alert_email_html_has_dark_mode_css():
     html = _get_alert_email_html([_MOCK_FLIGHT_OUT], [_MOCK_FLIGHT_IN])
     assert "prefers-color-scheme: dark" in html
@@ -556,8 +569,7 @@ def test_send_alert_email_html_has_dark_mode_classes():
     assert 'class="em-footer"' in html
     assert 'class="em-price"' in html
     assert 'class="em-badge"' in html
-    assert 'class="em-r0"' in html
-    assert 'class="em-thead"' in html
+    assert 'em-fcard' in html
 
 
 # ---------------------------------------------------------------------------
