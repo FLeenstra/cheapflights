@@ -121,7 +121,11 @@
       "routeUpdated": "Route succesvol bijgewerkt.",
       "routeSaved": "Route succesvol opgeslagen.",
       "outbound": "Heenvlucht",
-      "return": "Terugvlucht"
+      "return": "Terugvlucht",
+      "stops": "Tussenstops",
+      "directOnly": "Direct",
+      "oneStopMax": "Max. 1 tussenstop",
+      "anyStops": "Alles"
     },
     "savedSearches": {
       "title": "Opgeslagen zoekopdrachten",
@@ -194,7 +198,11 @@
       "errorFutureDob": "Geboortedatum kan niet in de toekomst liggen.",
       "infant": "Baby",
       "child_label": "Kind",
-      "adult_label": "Volwassene"
+      "adult_label": "Volwassene",
+      "account": "Account",
+      "accountHint": "Je accountrol en rechten.",
+      "adminStatus": "Beheerder",
+      "adminStatusHint": "Beheerders hebben toegang tot het beheerderspaneel en kunnen gebruikers beheren."
     },
     "deleteAccount": {
       "title": "Je account verwijderen",
@@ -259,7 +267,10 @@
       "noFlightsHint": "Geen vluchten gevonden voor deze route op de geselecteerde datum. Bekijk de prijssuggesties hieronder voor nabijgelegen datums.",
       "couldNotLoad": "Kon {{label}} vluchten niet laden",
       "flight": "vlucht",
-      "flights": "vluchten"
+      "flights": "vluchten",
+      "direct": "Direct",
+      "stopsCount": "{{n}} tussenstop",
+      "stopsCount_other": "{{n}} tussenstops"
     },
     "cheapestTotal": {
       "cheapestTotal": "Goedkoopste totaal",

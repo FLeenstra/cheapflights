@@ -6,16 +6,16 @@ A multi-airline flight price monitor that helps budget travellers find the best 
 
 ## Features
 
-- **Flight search** — real-time prices pulled from Google Flights for any origin/destination pair across all airlines; non-stop results only; each flight card shows the airline logo
+- **Flight search** — real-time prices pulled from Google Flights for any origin/destination pair across all airlines; configurable stops filter (direct only, 1 stop max, or any); each flight card shows the airline logo and a "Direct" or stop count badge
 - **Price suggestions** — cheapest outbound + inbound prices for 7 date combinations (−3 to +3 days)
-- **Airport autocomplete** — fast local search across 7,000+ commercial airports worldwide; each result shows the full airport name (e.g. Amsterdam Airport Schiphol) and country name in the user's language
+- **Airport autocomplete** — fast local search across 7,000+ commercial airports worldwide; each result shows the full airport name (e.g. Amsterdam Airport Schiphol) and country name in the user's language; type a country name followed by a colon (e.g. `Netherlands:`) to filter results to that country; click any country flag in the dropdown to jump straight to country-filtered mode; country matching is accent-insensitive
 - **User accounts** — register, log in, and reset your password via a styled HTML email
 - **Saved searches** — save any route search to your account; view, edit, and delete from a dedicated page sorted by departure date with sort and filter controls
 - **Multi-passenger support** — search and track routes for 1–9 passengers; all totals (cheapest summary and alert threshold) are calculated for the full group
 - **Alert options** — set a max group price alert, an availability alert (notify when any flight appears), or both when saving a search; when a goal is met the HTML alert email shows full airport names in the header and card-style flight results matching the search screen
 - **Hourly route checker** — background scheduler checks every active route with an alert, logs results, and deactivates the route once its goal is met
 - **Goal reached indicator** — saved searches show a green "Goal reached" banner with the exact timestamp when a price or availability goal was first met
-- **User profile** — set a default departure airport and travel group (adults + children) to pre-fill the search form; choose light, dark, or device-matched theme
+- **User profile** — set a default departure airport and travel group (adults + children) to pre-fill the search form; choose light, dark, or device-matched theme; account page shows admin status as a read-only toggle
 - **Internationalisation** — UI and alert emails available in 8 languages: English, Dutch, French, German, Polish, Italian, Spanish, and Portuguese; language is auto-detected from the browser and can be changed from the navbar
 - **Admin panel** — admins can view all users, browse scheduler logs grouped by run, manually trigger the route checker, and promote/demote other users to admin; admin accounts cannot be deleted
 - **Fully containerised** — one `docker compose up` gets you a running stack
@@ -189,12 +189,14 @@ Saving a route with the same `origin`, `destination`, `date_from`, and `date_to`
 
 | Method | Path | Query params | Description |
 |---|---|---|---|
-| `GET` | `/flights/search` | `origin`, `destination`, `date_from`, `date_to` | Search flights for a route and date range (max 90 days between dates) |
+| `GET` | `/flights/search` | `origin`, `destination`, `date_from`, `date_to`, `max_stops` | Search flights for a route and date range (max 90 days between dates) |
+
+`max_stops` is optional (default `non_stop`). Accepted values: `non_stop`, `one_stop`, `any`. Applies to both outbound/inbound results and the ±3-day price suggestion grid.
 
 #### Example request
 
 ```
-GET /flights/search?origin=DUB&destination=BCN&date_from=2025-08-01&date_to=2025-08-08
+GET /flights/search?origin=DUB&destination=BCN&date_from=2025-08-01&date_to=2025-08-08&max_stops=one_stop
 ```
 
 #### Example response
@@ -213,7 +215,8 @@ GET /flights/search?origin=DUB&destination=BCN&date_from=2025-08-01&date_to=2025
         "destination_full": "Barcelona International Airport",
         "departure_time": "2025-08-01T06:00:00",
         "airline": "Ryanair",
-        "airline_iata": "FR"
+        "airline_iata": "FR",
+        "stops": 0
       }
     ],
     "error": null

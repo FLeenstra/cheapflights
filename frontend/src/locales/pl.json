@@ -121,7 +121,11 @@
       "routeUpdated": "Trasa zaktualizowana pomyślnie.",
       "routeSaved": "Trasa zapisana pomyślnie.",
       "outbound": "Wylot",
-      "return": "Powrót"
+      "return": "Powrót",
+      "stops": "Przystanki",
+      "directOnly": "Bezpośredni",
+      "oneStopMax": "Maks. 1 postój",
+      "anyStops": "Dowolna"
     },
     "savedSearches": {
       "title": "Zapisane wyszukiwania",
@@ -194,7 +198,11 @@
       "errorFutureDob": "Data urodzenia nie może być w przyszłości.",
       "infant": "Niemowlę",
       "child_label": "Dziecko",
-      "adult_label": "Dorosły"
+      "adult_label": "Dorosły",
+      "account": "Konto",
+      "accountHint": "Twoja rola i uprawnienia konta.",
+      "adminStatus": "Administrator",
+      "adminStatusHint": "Administratorzy mają dostęp do panelu administratora i mogą zarządzać użytkownikami."
     },
     "deleteAccount": {
       "title": "Usuń swoje konto",
@@ -259,7 +267,10 @@
       "noFlightsHint": "Nie znaleziono lotów dla tej trasy w wybranym dniu. Sprawdź poniżej sugestie cenowe dla pobliskich dat.",
       "couldNotLoad": "Nie można załadować lotów {{label}}",
       "flight": "lot",
-      "flights": "lotów"
+      "flights": "lotów",
+      "direct": "Bezpośredni",
+      "stopsCount": "{{n}} postój",
+      "stopsCount_other": "{{n}} postoje"
     },
     "cheapestTotal": {
       "cheapestTotal": "Najtańszy łącznie",

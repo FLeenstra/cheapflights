@@ -320,6 +320,32 @@ export default function Profile() {
               </div>
             </div>
 
+            {/* Account */}
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 dark:bg-gray-900 dark:border-gray-800">
+              <h2 className="text-sm font-semibold text-gray-700 mb-1 dark:text-gray-200">{t('profile.account')}</h2>
+              <p className="text-xs text-gray-400 mb-4 dark:text-gray-500">{t('profile.accountHint')}</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('profile.adminStatus')}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{t('profile.adminStatusHint')}</p>
+                </div>
+                <button
+                  type="button"
+                  disabled
+                  role="switch"
+                  aria-checked={isAdmin}
+                  aria-label={t('profile.adminStatus')}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition cursor-not-allowed ${
+                    isAdmin ? 'bg-brand-600 dark:bg-brand-500' : 'bg-gray-200 dark:bg-gray-700'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                    isAdmin ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
+              </div>
+            </div>
+
             {saveError && (
               <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
                 {saveError}

@@ -121,7 +121,11 @@
       "routeUpdated": "Route erfolgreich aktualisiert.",
       "routeSaved": "Route erfolgreich gespeichert.",
       "outbound": "Hinflug",
-      "return": "Rückflug"
+      "return": "Rückflug",
+      "stops": "Stopps",
+      "directOnly": "Direkt",
+      "oneStopMax": "Max. 1 Stopp",
+      "anyStops": "Egal"
     },
     "savedSearches": {
       "title": "Gespeicherte Suchen",
@@ -194,7 +198,11 @@
       "errorFutureDob": "Das Geburtsdatum kann nicht in der Zukunft liegen.",
       "infant": "Kleinkind",
       "child_label": "Kind",
-      "adult_label": "Erwachsener"
+      "adult_label": "Erwachsener",
+      "account": "Konto",
+      "accountHint": "Deine Kontorolle und Berechtigungen.",
+      "adminStatus": "Administrator",
+      "adminStatusHint": "Admins können auf das Admin-Panel zugreifen und Benutzer verwalten."
     },
     "deleteAccount": {
       "title": "Dein Konto löschen",
@@ -259,7 +267,10 @@
       "noFlightsHint": "Keine Flüge für diese Route am ausgewählten Datum gefunden. Prüfe die Preisvorschläge unten für nahe liegende Daten.",
       "couldNotLoad": "{{label}}-Flüge konnten nicht geladen werden",
       "flight": "Flug",
-      "flights": "Flüge"
+      "flights": "Flüge",
+      "direct": "Direkt",
+      "stopsCount": "{{n}} Stopp",
+      "stopsCount_other": "{{n}} Stopps"
     },
     "cheapestTotal": {
       "cheapestTotal": "Günstigstes Gesamt",

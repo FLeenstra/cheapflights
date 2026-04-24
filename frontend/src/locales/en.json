@@ -121,7 +121,11 @@
       "routeUpdated": "Route updated successfully.",
       "routeSaved": "Route saved successfully.",
       "outbound": "Outbound",
-      "return": "Return"
+      "return": "Return",
+      "stops": "Stops",
+      "directOnly": "Direct",
+      "oneStopMax": "1 stop max",
+      "anyStops": "Any"
     },
     "savedSearches": {
       "title": "Saved searches",
@@ -194,7 +198,11 @@
       "errorFutureDob": "Date of birth cannot be in the future.",
       "infant": "Infant",
       "child_label": "Child",
-      "adult_label": "Adult"
+      "adult_label": "Adult",
+      "account": "Account",
+      "accountHint": "Your account role and permissions.",
+      "adminStatus": "Administrator",
+      "adminStatusHint": "Admins can access the admin panel and manage users."
     },
     "deleteAccount": {
       "title": "Delete your account",
@@ -259,7 +267,10 @@
       "noFlightsHint": "No flights found for this route on the selected date. Check the price suggestions below for nearby dates.",
       "couldNotLoad": "Could not load {{label}} flights",
       "flight": "flight",
-      "flights": "flights"
+      "flights": "flights",
+      "direct": "Direct",
+      "stopsCount": "{{n}} stop",
+      "stopsCount_other": "{{n}} stops"
     },
     "cheapestTotal": {
       "cheapestTotal": "Cheapest total",

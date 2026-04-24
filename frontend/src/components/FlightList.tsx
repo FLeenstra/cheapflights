@@ -13,6 +13,7 @@ export interface Flight {
   departure_time: string
   airline?: string
   airline_iata?: string
+  stops?: number
 }
 
 interface Props {
@@ -162,6 +163,17 @@ export default function FlightList({ label, from, to, date, outboundDate, inboun
                       </span>
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5 dark:text-gray-600">{flight.origin_full} → {flight.destination_full}</p>
+                    {flight.stops !== undefined && (
+                      <p className={`text-xs font-medium mt-1 ${
+                        flight.stops === 0
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-amber-600 dark:text-amber-400'
+                      }`}>
+                        {flight.stops === 0
+                          ? t('flightList.direct')
+                          : t('flightList.stopsCount', { n: flight.stops, count: flight.stops })}
+                      </p>
+                    )}
                   </div>
                 </div>
 

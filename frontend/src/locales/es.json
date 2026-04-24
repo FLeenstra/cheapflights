@@ -121,7 +121,11 @@
       "routeUpdated": "Ruta actualizada con éxito.",
       "routeSaved": "Ruta guardada con éxito.",
       "outbound": "Ida",
-      "return": "Vuelta"
+      "return": "Vuelta",
+      "stops": "Escalas",
+      "directOnly": "Directo",
+      "oneStopMax": "Máx. 1 escala",
+      "anyStops": "Cualquiera"
     },
     "savedSearches": {
       "title": "Búsquedas guardadas",
@@ -194,7 +198,11 @@
       "errorFutureDob": "La fecha de nacimiento no puede ser en el futuro.",
       "infant": "Bebé",
       "child_label": "Niño",
-      "adult_label": "Adulto"
+      "adult_label": "Adulto",
+      "account": "Cuenta",
+      "accountHint": "Tu rol y permisos de cuenta.",
+      "adminStatus": "Administrador",
+      "adminStatusHint": "Los administradores pueden acceder al panel de administración y gestionar usuarios."
     },
     "deleteAccount": {
       "title": "Eliminar tu cuenta",
@@ -259,7 +267,10 @@
       "noFlightsHint": "No se encontraron vuelos para esta ruta en la fecha seleccionada. Consulta las sugerencias de precios a continuación para fechas cercanas.",
       "couldNotLoad": "No se pudieron cargar los vuelos de {{label}}",
       "flight": "vuelo",
-      "flights": "vuelos"
+      "flights": "vuelos",
+      "direct": "Directo",
+      "stopsCount": "{{n}} escala",
+      "stopsCount_other": "{{n}} escalas"
     },
     "cheapestTotal": {
       "cheapestTotal": "Total más barato",

@@ -21,6 +21,12 @@ _SUGGESTION_OFFSETS = range(-3, 4)  # -3 to +3 inclusive
 _IATA_RE = re.compile(r"^[A-Z]{3}$")
 _ALL_AIRPORT_IATAS = sorted(ap.name for ap in Airport)
 
+_STOPS_MAP = {
+    "non_stop": MaxStops.NON_STOP,
+    "one_stop": MaxStops.ONE_STOP_OR_FEWER,
+    "any": MaxStops.ANY,
+}
+
 
 def _get_airport(iata: str) -> Airport | None:
     try:
@@ -29,7 +35,7 @@ def _get_airport(iata: str) -> Airport | None:
         return None
 
 
-def _make_filters(origin_ap: Airport, destination_ap: Airport, d: date) -> FlightSearchFilters:
+def _make_filters(origin_ap: Airport, destination_ap: Airport, d: date, stops: MaxStops = MaxStops.NON_STOP) -> FlightSearchFilters:
     return FlightSearchFilters(
         trip_type=TripType.ONE_WAY,
         passenger_info=PassengerInfo(adults=1),
@@ -41,20 +47,20 @@ def _make_filters(origin_ap: Airport, destination_ap: Airport, d: date) -> Fligh
             )
         ],
         seat_type=SeatType.ECONOMY,
-        stops=MaxStops.NON_STOP,
+        stops=stops,
         sort_by=SortBy.CHEAPEST,
     )
 
 
-def _search_date(origin: str, destination: str, d: date) -> tuple[list, str | None]:
-    """All non-stop flights for a specific date. Returns results sorted cheapest first."""
+def _search_date(origin: str, destination: str, d: date, stops: MaxStops = MaxStops.NON_STOP) -> tuple[list, str | None]:
+    """All flights for a specific date, filtered by stops. Returns results sorted cheapest first."""
     origin_ap = _get_airport(origin)
     destination_ap = _get_airport(destination)
     if origin_ap is None or destination_ap is None:
         return [], "Airport not supported"
 
     try:
-        results = SearchFlights().search(_make_filters(origin_ap, destination_ap, d)) or []
+        results = SearchFlights().search(_make_filters(origin_ap, destination_ap, d, stops)) or []
     except Exception:
         return [], "Failed to fetch flight data"
 
@@ -66,31 +72,33 @@ def _search_date(origin: str, destination: str, d: date) -> tuple[list, str | No
         if not result.legs:
             continue
         leg = result.legs[0]
+        last_leg = result.legs[-1]
         flights.append({
             "flight_number": leg.flight_number,
             "price": float(result.price),
             "currency": result.currency or "EUR",
             "origin": leg.departure_airport.name,
             "origin_full": leg.departure_airport.value,
-            "destination": leg.arrival_airport.name,
-            "destination_full": leg.arrival_airport.value,
+            "destination": last_leg.arrival_airport.name,
+            "destination_full": last_leg.arrival_airport.value,
             "departure_time": leg.departure_datetime.isoformat(),
             "airline": leg.airline.value if hasattr(leg.airline, "value") else str(leg.airline),
             "airline_iata": leg.airline.name if hasattr(leg.airline, "name") else None,
+            "stops": len(result.legs) - 1,
         })
 
     return sorted(flights, key=lambda f: f["price"]), None
 
 
-def _cheapest_for_date(origin: str, destination: str, d: date) -> float | None:
-    """Returns the cheapest non-stop price on a given date (per person)."""
+def _cheapest_for_date(origin: str, destination: str, d: date, stops: MaxStops = MaxStops.NON_STOP) -> float | None:
+    """Returns the cheapest price on a given date (per person) with the given stops setting."""
     origin_ap = _get_airport(origin)
     destination_ap = _get_airport(destination)
     if origin_ap is None or destination_ap is None:
         return None
 
     try:
-        results = SearchFlights().search(_make_filters(origin_ap, destination_ap, d)) or []
+        results = SearchFlights().search(_make_filters(origin_ap, destination_ap, d, stops)) or []
         return float(results[0].price) if results else None
     except Exception:
         return None
@@ -106,12 +114,15 @@ def get_routes(origin: str):
 
 
 @router.get("/search")
-def search_flights(origin: str, destination: str, date_from: date, date_to: date):
+def search_flights(origin: str, destination: str, date_from: date, date_to: date, max_stops: str = "non_stop"):
     origin = origin.strip().upper()
     destination = destination.strip().upper()
 
     if not _IATA_RE.match(origin) or not _IATA_RE.match(destination):
         raise HTTPException(status_code=422, detail="origin and destination must be 3-letter IATA codes")
+
+    if max_stops not in _STOPS_MAP:
+        raise HTTPException(status_code=422, detail="max_stops must be one of: non_stop, one_stop, any")
 
     if date_from > date_to:
         raise HTTPException(status_code=400, detail="date_from must be before date_to")
@@ -119,14 +130,16 @@ def search_flights(origin: str, destination: str, date_from: date, date_to: date
     if (date_to - date_from).days > 90:
         raise HTTPException(status_code=400, detail="Date range must not exceed 90 days")
 
+    stops = _STOPS_MAP[max_stops]
+
     with ThreadPoolExecutor(max_workers=20) as ex:
-        out_future = ex.submit(_search_date, origin, destination, date_from)
-        in_future = ex.submit(_search_date, destination, origin, date_to)
+        out_future = ex.submit(_search_date, origin, destination, date_from, stops)
+        in_future = ex.submit(_search_date, destination, origin, date_to, stops)
 
         sugg_futures = {
             offset: (
-                ex.submit(_cheapest_for_date, origin, destination, date_from + timedelta(days=offset)),
-                ex.submit(_cheapest_for_date, destination, origin, date_to + timedelta(days=offset)),
+                ex.submit(_cheapest_for_date, origin, destination, date_from + timedelta(days=offset), stops),
+                ex.submit(_cheapest_for_date, destination, origin, date_to + timedelta(days=offset), stops),
             )
             for offset in _SUGGESTION_OFFSETS if offset != 0
         }

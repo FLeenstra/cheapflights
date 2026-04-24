@@ -121,7 +121,11 @@
       "routeUpdated": "Rota atualizada com sucesso.",
       "routeSaved": "Rota guardada com sucesso.",
       "outbound": "Ida",
-      "return": "Volta"
+      "return": "Volta",
+      "stops": "Escalas",
+      "directOnly": "Direto",
+      "oneStopMax": "Máx. 1 escala",
+      "anyStops": "Qualquer"
     },
     "savedSearches": {
       "title": "Pesquisas guardadas",
@@ -194,7 +198,11 @@
       "errorFutureDob": "A data de nascimento não pode ser no futuro.",
       "infant": "Bebé",
       "child_label": "Criança",
-      "adult_label": "Adulto"
+      "adult_label": "Adulto",
+      "account": "Conta",
+      "accountHint": "O seu papel e permissões de conta.",
+      "adminStatus": "Administrador",
+      "adminStatusHint": "Os administradores podem aceder ao painel de administração e gerir utilizadores."
     },
     "deleteAccount": {
       "title": "Eliminar a sua conta",
@@ -259,7 +267,10 @@
       "noFlightsHint": "Nenhum voo encontrado para esta rota na data selecionada. Consulte as sugestões de preços abaixo para datas próximas.",
       "couldNotLoad": "Não foi possível carregar os voos de {{label}}",
       "flight": "voo",
-      "flights": "voos"
+      "flights": "voos",
+      "direct": "Direto",
+      "stopsCount": "{{n}} escala",
+      "stopsCount_other": "{{n}} escalas"
     },
     "cheapestTotal": {
       "cheapestTotal": "Total mais barato",

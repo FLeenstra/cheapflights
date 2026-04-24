@@ -114,6 +114,27 @@ describe('FlightList', () => {
     expect(onSelect).toHaveBeenCalledWith(FLIGHT)
   })
 
+  it('shows "Direct" badge for a flight with stops=0', () => {
+    render(<FlightList {...baseProps} flights={[{ ...FLIGHT, stops: 0 }]} error={null} />)
+    expect(screen.getByText('Direct')).toBeInTheDocument()
+  })
+
+  it('shows stops count badge for a flight with stops>0', () => {
+    render(<FlightList {...baseProps} flights={[{ ...FLIGHT, stops: 1 }]} error={null} />)
+    expect(screen.getByText('1 stop')).toBeInTheDocument()
+  })
+
+  it('shows plural stops for stops=2', () => {
+    render(<FlightList {...baseProps} flights={[{ ...FLIGHT, stops: 2 }]} error={null} />)
+    expect(screen.getByText('2 stops')).toBeInTheDocument()
+  })
+
+  it('shows no stops badge when stops field is absent', () => {
+    render(<FlightList {...baseProps} flights={[FLIGHT]} error={null} />)
+    expect(screen.queryByText('Direct')).not.toBeInTheDocument()
+    expect(screen.queryByText(/stop/)).not.toBeInTheDocument()
+  })
+
   it('highlights the selected flight card', () => {
     const { container } = render(
       <FlightList {...baseProps} flights={[FLIGHT]} error={null} selectedFlight={FLIGHT} />

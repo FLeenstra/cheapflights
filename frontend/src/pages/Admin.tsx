@@ -263,17 +263,19 @@ export default function Admin() {
                           </span>
                         </td>
                         <td className="px-5 py-3 text-center">
-                          {u.is_admin ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 bg-brand-50 border border-brand-200 rounded-full px-2.5 py-0.5 dark:bg-brand-900/30 dark:border-brand-700 dark:text-brand-300">
-                              {t('admin.adminBadge')}
-                            </span>
-                          ) : null}
                           <button
+                            role="switch"
+                            aria-checked={u.is_admin}
+                            aria-label={u.is_admin ? t('admin.revokeAdmin') : t('admin.makeAdmin')}
                             onClick={() => handleToggleAdmin(u)}
                             disabled={adminTogglingId === u.id}
-                            className={`ml-2 text-xs underline transition disabled:opacity-40 ${u.is_admin ? 'text-red-500 hover:text-red-700 dark:text-red-400' : 'text-gray-400 hover:text-brand-600 dark:hover:text-brand-400'}`}
+                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                              u.is_admin ? 'bg-brand-600 dark:bg-brand-500' : 'bg-gray-200 dark:bg-gray-700'
+                            }`}
                           >
-                            {adminTogglingId === u.id ? '…' : u.is_admin ? t('admin.revoke') : t('admin.makeAdmin')}
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                              u.is_admin ? 'translate-x-6' : 'translate-x-1'
+                            }`} />
                           </button>
                         </td>
                       </tr>

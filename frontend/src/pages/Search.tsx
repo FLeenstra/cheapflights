@@ -61,6 +61,7 @@ export default function Search() {
   const [searchedRoute, setSearchedRoute] = useState<{ origin: Airport; destination: Airport; dateFrom: string; dateTo: string; passengers: number } | null>(null)
   const [selectedOutbound, setSelectedOutbound] = useState<Flight | null>(null)
   const [selectedInbound, setSelectedInbound] = useState<Flight | null>(null)
+  const [maxStops, setMaxStops] = useState<'non_stop' | 'one_stop' | 'any'>('non_stop')
   const [loading, setLoading] = useState(false)
   const [formError, setFormError] = useState('')
 
@@ -133,7 +134,7 @@ export default function Search() {
     await doSearch(origin, destination, dateFrom, dateTo)
   }
 
-  async function doSearch(org: Airport, dest: Airport, from: Date, to: Date, pax = passengers, searchedChildrenAges = childrenAges) {
+  async function doSearch(org: Airport, dest: Airport, from: Date, to: Date, pax = passengers, searchedChildrenAges = childrenAges, stopsParam = maxStops) {
     setFormError('')
     setResults(null)
     setLoading(true)
@@ -143,6 +144,7 @@ export default function Search() {
         destination: dest.iata,
         date_from: toISO(from),
         date_to: toISO(to),
+        max_stops: stopsParam,
       })
       const res = await fetch(`/api/flights/search?${params}`)
       const data = await res.json()
@@ -282,6 +284,33 @@ export default function Search() {
                     {t('search.addChild')}
                   </button>
                 )}
+              </div>
+            </div>
+
+            {/* Stops filter */}
+            <div className="flex items-center gap-3 mb-5">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide dark:text-gray-400">
+                {t('search.stops')}
+              </span>
+              <div className="flex gap-1.5">
+                {([
+                  { value: 'non_stop', label: t('search.directOnly') },
+                  { value: 'one_stop', label: t('search.oneStopMax') },
+                  { value: 'any',      label: t('search.anyStops') },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setMaxStops(opt.value)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
+                      maxStops === opt.value
+                        ? 'border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-900/30 dark:text-brand-300'
+                        : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
 

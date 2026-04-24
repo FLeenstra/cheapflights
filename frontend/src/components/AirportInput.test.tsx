@@ -168,3 +168,98 @@ describe('AirportInput', () => {
     expect((input as HTMLInputElement).value).toBe('')
   })
 })
+
+describe('AirportInput — country-prefix filtering', () => {
+  it('shows a country suggestion with arrow indicator when query matches a country name', () => {
+    render(<AirportInput {...baseProps} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Nether' } })
+    // Arrow → only appears on country suggestion items, not airport items
+    expect(screen.getAllByText('→').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('🇳🇱').length).toBeGreaterThan(0)
+  })
+
+  it('clicking a country suggestion sets the query to "Country: "', () => {
+    render(<AirportInput {...baseProps} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Netherlands' } })
+    // The first option in the list is the Netherlands country suggestion
+    fireEvent.mouseDown(screen.getAllByRole('option')[0])
+    expect((input as HTMLInputElement).value).toBe('Netherlands: ')
+  })
+
+  it('Enter on a highlighted country suggestion sets the query to "Country: "', () => {
+    render(<AirportInput {...baseProps} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Nether' } })
+    // highlighted=0, which is the Netherlands country suggestion
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect((input as HTMLInputElement).value).toBe('Netherlands: ')
+  })
+
+  it('shows airports in the country after a colon with no airport query', () => {
+    render(<AirportInput {...baseProps} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Netherlands: ' } })
+    expect(screen.getByText('AMS')).toBeInTheDocument()
+  })
+
+  it('further filters airports within the country when typing after the colon', () => {
+    render(<AirportInput {...baseProps} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Netherlands: AMS' } })
+    expect(screen.getByText('AMS')).toBeInTheDocument()
+    expect(screen.queryByText('DUB')).not.toBeInTheDocument()
+  })
+
+  it('shows no-results message when no airports match within the country', () => {
+    render(<AirportInput {...baseProps} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Netherlands: Zzzzzz' } })
+    expect(screen.getByText(/no airports found/i)).toBeInTheDocument()
+  })
+
+  it('selecting an airport in country-filter mode calls onChange', () => {
+    const onChange = vi.fn()
+    render(<AirportInput {...baseProps} onChange={onChange} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Netherlands: AMS' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ iata: 'AMS' }))
+  })
+
+  it('clicking the country flag on an airport item switches to country-filter mode', () => {
+    render(<AirportInput {...baseProps} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'DUB' } })
+    // DUB is in Ireland (IE) — flag 🇮🇪 appears on the airport item
+    const flag = screen.getByText('🇮🇪')
+    fireEvent.mouseDown(flag)
+    expect((input as HTMLInputElement).value).toBe('Ireland: ')
+  })
+
+  it('matches country with unaccented input when the localized name has diacritics', () => {
+    render(<AirportInput {...baseProps} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    // "Côte d'Ivoire" in English locale — typing without the accent should still match
+    fireEvent.change(input, { target: { value: 'Cote' } })
+    expect(screen.getByText('🇨🇮')).toBeInTheDocument()
+  })
+
+  it('still allows direct airport search without a country prefix', () => {
+    render(<AirportInput {...baseProps} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Amsterdam' } })
+    expect(screen.getByText('AMS')).toBeInTheDocument()
+  })
+})

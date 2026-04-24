@@ -121,7 +121,11 @@
       "routeUpdated": "Rotta aggiornata con successo.",
       "routeSaved": "Rotta salvata con successo.",
       "outbound": "Andata",
-      "return": "Ritorno"
+      "return": "Ritorno",
+      "stops": "Scali",
+      "directOnly": "Diretto",
+      "oneStopMax": "Max. 1 scalo",
+      "anyStops": "Qualsiasi"
     },
     "savedSearches": {
       "title": "Ricerche salvate",
@@ -194,7 +198,11 @@
       "errorFutureDob": "La data di nascita non può essere nel futuro.",
       "infant": "Neonato",
       "child_label": "Bambino",
-      "adult_label": "Adulto"
+      "adult_label": "Adulto",
+      "account": "Account",
+      "accountHint": "Il tuo ruolo e le tue autorizzazioni.",
+      "adminStatus": "Amministratore",
+      "adminStatusHint": "Gli amministratori possono accedere al pannello di amministrazione e gestire gli utenti."
     },
     "deleteAccount": {
       "title": "Elimina il tuo account",
@@ -259,7 +267,10 @@
       "noFlightsHint": "Nessun volo trovato per questa rotta nella data selezionata. Controlla i suggerimenti sui prezzi qui sotto per date vicine.",
       "couldNotLoad": "Impossibile caricare i voli {{label}}",
       "flight": "volo",
-      "flights": "voli"
+      "flights": "voli",
+      "direct": "Diretto",
+      "stopsCount": "{{n}} scalo",
+      "stopsCount_other": "{{n}} scali"
     },
     "cheapestTotal": {
       "cheapestTotal": "Totale più economico",

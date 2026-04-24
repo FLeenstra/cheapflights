@@ -62,6 +62,7 @@ def _make_flight_dict(
         "departure_time": departure_iso,
         "airline": airline_name,
         "airline_iata": airline_iata,
+        "stops": 0,
     }
 
 
@@ -117,6 +118,26 @@ class TestFlightsSearchValidation:
         })
         assert res.status_code == 422
 
+    def test_invalid_max_stops_returns_422(self, client):
+        res = client.get("/flights/search", params={
+            "origin": "DUB", "destination": "BCN",
+            "date_from": "2025-06-01", "date_to": "2025-06-08",
+            "max_stops": "three_stops",
+        })
+        assert res.status_code == 422
+        assert "max_stops" in res.json()["detail"].lower()
+
+    def test_valid_max_stops_values_accepted(self, client):
+        for val in ("non_stop", "one_stop", "any"):
+            with patch("routers.flights._search_date", return_value=([], None)), \
+                 patch("routers.flights._cheapest_for_date", return_value=None):
+                res = client.get("/flights/search", params={
+                    "origin": "DUB", "destination": "BCN",
+                    "date_from": "2025-06-01", "date_to": "2025-06-08",
+                    "max_stops": val,
+                })
+            assert res.status_code == 200, f"Expected 200 for max_stops={val}"
+
     def test_iata_codes_uppercased(self, client):
         """Lowercase codes are normalised before use."""
         with patch("routers.flights._search_date", return_value=([], None)) as mock_sd, \
@@ -138,7 +159,7 @@ class TestFlightsSearchResults:
             departure_iso="2027-06-08T15:00:00",
         )]
 
-        def fake_search(origin, dest, d):
+        def fake_search(origin, dest, d, stops=None):
             return (out if origin == "DUB" else inn, None)
 
         with patch("routers.flights._search_date", side_effect=fake_search), \
@@ -214,7 +235,7 @@ class TestFlightsSearchResults:
     def test_currency_from_inbound_when_outbound_empty(self, client):
         inn = [_make_flight_dict(currency="GBP", origin_iata="BCN", dest_iata="DUB")]
 
-        def fake_search(origin, dest, d):
+        def fake_search(origin, dest, d, stops=None):
             return ([], None) if origin == "DUB" else (inn, None)
 
         with patch("routers.flights._search_date", side_effect=fake_search), \
@@ -262,7 +283,7 @@ class TestFlightsSearchResults:
         assert body["outbound"]["error"] is not None
 
     def test_cheapest_none_when_no_suggestion_flights(self, client):
-        def fake_search(origin, dest, d):
+        def fake_search(origin, dest, d, stops=None):
             return ([_make_flight_result()], None)
 
         with patch("routers.flights._search_date", side_effect=fake_search), \
@@ -277,8 +298,34 @@ class TestFlightsSearchResults:
             assert s["outbound_cheapest"] is None
             assert s["total"] is None
 
+    def test_flight_includes_stops_field(self, client):
+        with patch("routers.flights.SearchFlights", _mock_sf([_make_flight_result()])), \
+             patch("routers.flights._cheapest_for_date", return_value=None):
+            res = client.get("/flights/search", params={
+                "origin": "DUB", "destination": "BCN",
+                "date_from": "2025-06-01", "date_to": "2025-06-08",
+            })
+        flight = res.json()["outbound"]["flights"][0]
+        assert "stops" in flight
+        assert flight["stops"] == 0  # single-leg mock result = 0 stops
+
+    def test_max_stops_param_passed_to_search_date(self, client):
+        from fli.models import MaxStops
+        captured = []
+        def fake_search(origin, dest, d, stops=None):
+            captured.append(stops)
+            return ([], None)
+        with patch("routers.flights._search_date", side_effect=fake_search), \
+             patch("routers.flights._cheapest_for_date", return_value=None):
+            client.get("/flights/search", params={
+                "origin": "DUB", "destination": "BCN",
+                "date_from": "2025-06-01", "date_to": "2025-06-08",
+                "max_stops": "one_stop",
+            })
+        assert all(s == MaxStops.ONE_STOP_OR_FEWER for s in captured)
+
     def test_cheapest_none_on_exception(self, client):
-        def fake_search(origin, dest, d):
+        def fake_search(origin, dest, d, stops=None):
             return ([_make_flight_dict()], None)
 
         with patch("routers.flights._search_date", side_effect=fake_search), \
@@ -316,6 +363,20 @@ class TestSearchDate:
         assert flights[0]["destination"] == "BCN"
         assert flights[0]["airline"] == "Ryanair"
         assert flights[0]["airline_iata"] == "FR"
+        assert flights[0]["stops"] == 0  # single-leg result
+
+    def test_multi_leg_result_uses_last_leg_destination_and_counts_stops(self):
+        from routers.flights import _search_date
+        result = _make_flight_result(dest_iata="MAD")
+        second_leg = MagicMock()
+        second_leg.arrival_airport.name = "MAD"
+        second_leg.arrival_airport.value = "MAD Airport"
+        result.legs = [result.legs[0], second_leg]
+        with patch("routers.flights.SearchFlights", _mock_sf([result])), \
+             patch("routers.flights._make_filters", return_value=_MOCK_FILTERS):
+            flights, _ = _search_date("DUB", "MAD", date(2025, 6, 1))
+        assert flights[0]["destination"] == "MAD"
+        assert flights[0]["stops"] == 1
 
     def test_returns_empty_list_when_no_results(self):
         from routers.flights import _search_date

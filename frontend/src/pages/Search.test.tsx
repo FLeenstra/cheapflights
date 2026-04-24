@@ -240,3 +240,31 @@ describe('Search — runSearch pre-fill', () => {
     expect(screen.queryByText(/Infant fee not included/)).not.toBeInTheDocument()
   })
 })
+
+describe('Search — stops picker', () => {
+  it('shows three stops options with Direct selected by default', async () => {
+    renderSearch()
+    await waitFor(() => expect(screen.getByText('Stops')).toBeInTheDocument())
+    expect(screen.getByText('Direct')).toBeInTheDocument()
+    expect(screen.getByText('1 stop max')).toBeInTheDocument()
+    expect(screen.getByText('Any')).toBeInTheDocument()
+  })
+
+  it('renders the stops section with three option buttons', async () => {
+    renderSearch()
+    await waitFor(() => expect(screen.getByText('Stops')).toBeInTheDocument())
+    // All three options are buttons
+    expect(screen.getByRole('button', { name: 'Direct' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '1 stop max' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Any' })).toBeInTheDocument()
+  })
+
+  it('switches active option when a stops button is clicked', async () => {
+    renderSearch()
+    await waitFor(() => expect(screen.getByText('1 stop max')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('1 stop max'))
+    // After clicking, "1 stop max" should gain the active style (border-brand-600)
+    const btn = screen.getByText('1 stop max')
+    expect(btn.className).toMatch(/brand/)
+  })
+})

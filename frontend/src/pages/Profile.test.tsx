@@ -96,6 +96,29 @@ describe('Profile page', () => {
     await waitFor(() => expect(screen.getByText('Profile saved.')).toBeInTheDocument())
   })
 
+  it('shows account section with admin toggle off for non-admin', async () => {
+    renderProfile()
+    await waitFor(() => expect(screen.getByText('Account')).toBeInTheDocument())
+    expect(screen.getByText('Administrator')).toBeInTheDocument()
+    const toggle = screen.getByRole('switch', { name: /administrator/i })
+    expect(toggle).toBeDisabled()
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('shows admin toggle on for admin user', async () => {
+    vi.spyOn(global, 'fetch').mockImplementation((url: RequestInfo | URL) => {
+      const path = url.toString()
+      if (path.includes('/auth/me')) return Promise.resolve({ ok: true, json: async () => ({ is_admin: true }) } as Response)
+      if (path.includes('/profile/')) return Promise.resolve({ ok: true, json: async () => defaultProfile } as Response)
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
+    })
+    renderProfile()
+    await waitFor(() => {
+      const toggle = screen.getByRole('switch', { name: /administrator/i })
+      expect(toggle).toHaveAttribute('aria-checked', 'true')
+    })
+  })
+
   it('shows error when save fails', async () => {
     vi.spyOn(global, 'fetch').mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
       const path = url.toString()
