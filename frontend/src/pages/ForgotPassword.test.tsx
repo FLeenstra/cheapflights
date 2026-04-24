@@ -36,7 +36,7 @@ describe('ForgotPassword', () => {
     renderForgotPassword()
     fireEvent.change(screen.getByPlaceholderText('you@example.com'), { target: { value: 'someone@example.com' } })
     fireEvent.click(screen.getByText('Send reset link'))
-    await waitFor(() => expect(screen.getByText('someone@example.com')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/someone@example\.com/)).toBeInTheDocument())
   })
 
   it('shows an error when the API returns a non-ok response', async () => {

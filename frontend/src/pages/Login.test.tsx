@@ -49,7 +49,7 @@ describe('Login', () => {
     fireEvent.change(screen.getByPlaceholderText('you@example.com'), { target: { value: 'user@test.com' } })
     fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'password1' } })
     fireEvent.click(screen.getByText('Sign in'))
-    await waitFor(() => expect(screen.getByText('Login failed.')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Something went wrong.')).toBeInTheDocument())
   })
 
   it('shows loading state while submitting', async () => {

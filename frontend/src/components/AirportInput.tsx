@@ -13,12 +13,21 @@ interface Props {
   loading?: boolean
 }
 
+function localCountry(countryCode: string, locale: string): string {
+  try {
+    return new Intl.DisplayNames([locale], { type: 'region' }).of(countryCode) ?? ''
+  } catch {
+    return ''
+  }
+}
+
 function match(airport: Airport, query: string): boolean {
   const q = query.toLowerCase()
   return (
+    airport.iata.toLowerCase().includes(q) ||
     airport.city.toLowerCase().includes(q) ||
-    airport.country.toLowerCase().includes(q) ||
-    airport.iata.toLowerCase().includes(q)
+    airport.name.toLowerCase().includes(q) ||
+    airport.country.toLowerCase().includes(q)
   )
 }
 
@@ -26,12 +35,14 @@ function rank(airport: Airport, query: string): number {
   const q = query.toLowerCase()
   if (airport.iata.toLowerCase() === q) return 0
   if (airport.city.toLowerCase().startsWith(q)) return 1
-  if (airport.city.toLowerCase().includes(q)) return 2
-  return 3
+  if (airport.name.toLowerCase().startsWith(q)) return 2
+  if (airport.city.toLowerCase().includes(q)) return 3
+  return 4
 }
 
 export default function AirportInput({ label, placeholder, value, onChange, allowedIata, loading }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = i18n.language
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [highlighted, setHighlighted] = useState(0)
@@ -84,6 +95,11 @@ export default function AirportInput({ label, placeholder, value, onChange, allo
   useEffect(() => setHighlighted(0), [query])
 
   const displayValue = value ? `${value.city} (${value.iata})` : ''
+
+  function countryLabel(airport: Airport): string {
+    const localized = airport.countryCode ? localCountry(airport.countryCode, locale) : ''
+    return localized || airport.country
+  }
 
   return (
     <div ref={containerRef} className="relative">
@@ -143,7 +159,10 @@ export default function AirportInput({ label, placeholder, value, onChange, allo
             >
               <div>
                 <span className="font-medium text-gray-900 dark:text-white">{airport.city}</span>
-                <span className="text-sm text-gray-400 ml-2 dark:text-gray-500">{airport.country}</span>
+                <span className="text-sm text-gray-400 ml-2 dark:text-gray-500">{countryLabel(airport)}</span>
+                {airport.name && (
+                  <div className="text-xs text-gray-400 dark:text-gray-600">{airport.name}</div>
+                )}
               </div>
               <span className="text-xs font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md dark:text-brand-400 dark:bg-brand-900/30">
                 {airport.iata}
