@@ -105,6 +105,32 @@ describe('AirportInput', () => {
     expect(container.querySelector('.animate-spin')).toBeInTheDocument()
   })
 
+  it('shows airport name below city in dropdown results', () => {
+    render(<AirportInput {...baseProps} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'DUB' } })
+    expect(screen.getByText('Dublin Airport')).toBeInTheDocument()
+  })
+
+  it('matches airports by their name as well as city', () => {
+    render(<AirportInput {...baseProps} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Schiphol' } })
+    expect(screen.getByText('AMS')).toBeInTheDocument()
+    expect(screen.getByText('Amsterdam Airport Schiphol')).toBeInTheDocument()
+  })
+
+  it('shows localised country name when countryCode is present', () => {
+    render(<AirportInput {...baseProps} />)
+    const input = screen.getByPlaceholderText('e.g. Dublin')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'AMS' } })
+    // In English locale Intl.DisplayNames returns 'Netherlands' for 'NL'
+    expect(screen.getByText('Netherlands')).toBeInTheDocument()
+  })
+
   it('pre-fills query with city name when a value is already selected and the input is focused', () => {
     const selected = { iata: 'DUB', name: 'Dublin Airport', city: 'Dublin', country: 'Ireland', countryCode: 'IE' }
     render(<AirportInput {...baseProps} value={selected} />)

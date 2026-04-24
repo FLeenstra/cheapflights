@@ -8,7 +8,7 @@ A multi-airline flight price monitor that helps budget travellers find the best 
 
 - **Flight search** — real-time prices pulled from Google Flights for any origin/destination pair across all airlines; non-stop results only; each flight card shows the airline logo
 - **Price suggestions** — cheapest outbound + inbound prices for 7 date combinations (−3 to +3 days)
-- **Airport autocomplete** — fast local search across 7,000+ commercial airports worldwide
+- **Airport autocomplete** — fast local search across 7,000+ commercial airports worldwide; each result shows the full airport name (e.g. Amsterdam Airport Schiphol) and country name in the user's language
 - **User accounts** — register, log in, and reset your password via a styled HTML email
 - **Saved searches** — save any route search to your account; view, edit, and delete from a dedicated page sorted by departure date with sort and filter controls
 - **Multi-passenger support** — search and track routes for 1–9 passengers; all totals (cheapest summary and alert threshold) are calculated for the full group
@@ -380,27 +380,6 @@ Every hour APScheduler runs `check_routes()`, which:
 6. After the check loop, `expire_routes()` runs: any active route whose departure date has now passed without its goal being met is deleted from the database, and the user receives a "sorry" email explaining that no matching flight was found in time.
 
 The saved searches page reflects the goal status: once a goal is reached the card shows a green "Goal reached · \<date\>" banner and the search is no longer checked.
-
----
-
-## Roadmap
-
-- [x] Password reset via styled HTML email
-- [x] Save route searches with optional price alert and/or availability alert
-- [x] Saved searches page with sort (departure date, newest, origin, destination) and filter (price alert, availability, no alert) controls
-- [x] Click a saved search to immediately run it
-- [x] Hourly background scheduler checks routes and logs results to `route_check_logs`
-- [x] Route auto-deactivated when its goal is reached (stops being checked)
-- [x] Saved searches show "Goal reached" banner with timestamp
-- [x] Admin panel — users list (sorted by searches), scheduler logs grouped by run, manual trigger, promote/demote admin
-- [x] Alert emails — styled HTML email sent to the user when a price or availability goal is reached
-- [x] Return-trip total in the main results view (cheapest outbound + return, shown between the search form and results)
-- [x] Multi-passenger support — search, book, and track prices for up to 9 passengers; group totals shown throughout
-- [x] Destination autocomplete — full airport search across all destinations supported by Google Flights
-- [x] User profile — default departure airport, travel group (adults + children), and light/dark/system theme preference
-- [x] Account deletion — delete account from profile page; confirmation email sent with a one-hour token link
-- [x] Multi-airline support — all non-stop flights from Google Flights (Ryanair, EasyJet, Vueling, Wizz Air, etc.)
-- [x] Internationalisation — 8 languages for UI and alert emails; language auto-detected from browser, persisted to user profile
 
 ---
 
