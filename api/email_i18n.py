@@ -1,5 +1,27 @@
 """Translated strings for outgoing HTML/plain-text emails."""
 
+EMAIL_DARK_STYLE = """<style type="text/css">
+  @media (prefers-color-scheme: dark) {
+    .em-bg    { background-color: #0f172a !important; }
+    .em-card  { background-color: #1e293b !important; }
+    .em-footer{ background-color: #0f172a !important; border-top-color: #334155 !important; }
+    .em-text  { color: #e2e8f0 !important; }
+    .em-sub   { color: #94a3b8 !important; }
+    .em-muted { color: #64748b !important; }
+    .em-hr    { border-top-color: #334155 !important; }
+    .em-tbl   { border-color: #334155 !important; }
+    .em-thead { background: #2d3f55 !important; }
+    .em-th    { color: #94a3b8 !important; }
+    .em-r0    { background: #1e293b !important; }
+    .em-r1    { background: #253347 !important; }
+    .em-td    { color: #e2e8f0 !important; }
+    .em-price { color: #60a5fa !important; }
+    .em-badge { background: #1e3a8a !important; color: #93c5fd !important; }
+    .em-link  { color: #60a5fa !important; }
+    .em-sec   { background-color: #334155 !important; }
+  }
+</style>"""
+
 _STRINGS: dict[str, dict[str, str]] = {
     "en": {
         # password reset

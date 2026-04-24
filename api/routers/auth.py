@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from config import ADMIN_EMAIL
 from database import get_db
+from email_i18n import EMAIL_DARK_STYLE as _DARK_STYLE
 from limiter import limiter
 from models import AccountDeletionToken, PasswordResetToken, Route, RouteCheckLog, User
 
@@ -166,10 +167,13 @@ def _send_reset_email(to_email: str, reset_url: str, lang: str = "en") -> None:
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="supported-color-schemes" content="light dark" />
   <title>{_t(lang, 'reset_subject')}</title>
+  {_DARK_STYLE}
 </head>
-<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
+<body class="em-bg" style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+  <table class="em-bg" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
     <tr>
       <td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
@@ -198,8 +202,8 @@ def _send_reset_email(to_email: str, reset_url: str, lang: str = "en") -> None:
 
           <!-- Body -->
           <tr>
-            <td style="background-color:#ffffff;padding:36px 40px;">
-              <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+            <td class="em-card" style="background-color:#ffffff;padding:36px 40px;">
+              <p class="em-text" style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
                 {_t(lang, 'reset_body')}
               </p>
 
@@ -216,16 +220,16 @@ def _send_reset_email(to_email: str, reset_url: str, lang: str = "en") -> None:
               </table>
 
               <!-- Fallback URL -->
-              <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">
+              <p class="em-sub" style="margin:0 0 8px;color:#6b7280;font-size:13px;">
                 {_t(lang, 'reset_fallback')}
               </p>
               <p style="margin:0 0 28px;word-break:break-all;">
-                <a href="{reset_url}" style="color:#2563eb;font-size:13px;text-decoration:none;">{reset_url}</a>
+                <a href="{reset_url}" class="em-link" style="color:#2563eb;font-size:13px;text-decoration:none;">{reset_url}</a>
               </p>
 
-              <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
+              <hr class="em-hr" style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
 
-              <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
+              <p class="em-muted" style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
                 {_t(lang, 'reset_ignore')}
               </p>
             </td>
@@ -233,7 +237,7 @@ def _send_reset_email(to_email: str, reset_url: str, lang: str = "en") -> None:
 
           <!-- Footer -->
           <tr>
-            <td style="background-color:#f8fafc;border-radius:0 0 16px 16px;border-top:1px solid #e5e7eb;padding:20px 40px;">
+            <td class="em-footer" style="background-color:#f8fafc;border-radius:0 0 16px 16px;border-top:1px solid #e5e7eb;padding:20px 40px;">
               <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">
                 &#169; El Cheapo &middot; Sent to {to_email}
               </p>
@@ -383,10 +387,13 @@ def _send_delete_confirmation_email(to_email: str, confirm_url: str, lang: str =
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="supported-color-schemes" content="light dark" />
   <title>{_t(lang, 'delete_subject')}</title>
+  {_DARK_STYLE}
 </head>
-<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
+<body class="em-bg" style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+  <table class="em-bg" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
     <tr>
       <td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
@@ -415,11 +422,11 @@ def _send_delete_confirmation_email(to_email: str, confirm_url: str, lang: str =
 
           <!-- Body -->
           <tr>
-            <td style="background-color:#ffffff;padding:36px 40px;">
-              <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
+            <td class="em-card" style="background-color:#ffffff;padding:36px 40px;">
+              <p class="em-text" style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
                 {body1}
               </p>
-              <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+              <p class="em-text" style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
                 {_t(lang, 'delete_body2')}
               </p>
 
@@ -436,16 +443,16 @@ def _send_delete_confirmation_email(to_email: str, confirm_url: str, lang: str =
               </table>
 
               <!-- Fallback URL -->
-              <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">
+              <p class="em-sub" style="margin:0 0 8px;color:#6b7280;font-size:13px;">
                 {_t(lang, 'delete_fallback')}
               </p>
               <p style="margin:0 0 28px;word-break:break-all;">
-                <a href="{confirm_url}" style="color:#dc2626;font-size:13px;text-decoration:none;">{confirm_url}</a>
+                <a href="{confirm_url}" class="em-link" style="color:#dc2626;font-size:13px;text-decoration:none;">{confirm_url}</a>
               </p>
 
-              <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
+              <hr class="em-hr" style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
 
-              <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
+              <p class="em-muted" style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
                 {_t(lang, 'delete_ignore')}
               </p>
             </td>
@@ -453,7 +460,7 @@ def _send_delete_confirmation_email(to_email: str, confirm_url: str, lang: str =
 
           <!-- Footer -->
           <tr>
-            <td style="background-color:#f8fafc;border-radius:0 0 16px 16px;border-top:1px solid #e5e7eb;padding:20px 40px;">
+            <td class="em-footer" style="background-color:#f8fafc;border-radius:0 0 16px 16px;border-top:1px solid #e5e7eb;padding:20px 40px;">
               <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">
                 &#169; El Cheapo &middot; Sent to {to_email}
               </p>

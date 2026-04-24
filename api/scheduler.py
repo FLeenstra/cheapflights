@@ -15,6 +15,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
+from email_i18n import EMAIL_DARK_STYLE as _DARK_STYLE
 from email_i18n import pax_label as _pax_label_i18n
 from email_i18n import t as _t
 from models import Route, RouteCheckLog
@@ -39,38 +40,39 @@ def _flight_table_html(flights: list[dict], label: str, origin: str, destination
     for i, f in enumerate(flights):
         time = f["departure_time"][11:16] if len(f["departure_time"]) >= 16 else f["departure_time"]
         badge = (
-            f'<td style="padding:10px 12px;"><span style="background:#eff6ff;color:#2563eb;'
+            f'<td style="padding:10px 12px;"><span class="em-badge" style="background:#eff6ff;color:#2563eb;'
             f'font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">'
             f'{_t(lang, "flight_best_price")}</span></td>'
             if i == 0 else '<td style="padding:10px 12px;"></td>'
         )
+        row_cls = "em-r0" if i % 2 == 0 else "em-r1"
         bg = "#f8fafc" if i % 2 == 0 else "#ffffff"
         rows += (
-            f'<tr style="background:{bg};">'
+            f'<tr class="{row_cls}" style="background:{bg};">'
             f'{badge}'
-            f'<td style="padding:10px 12px;font-size:14px;color:#374151;">{f.get("airline", "")}</td>'
-            f'<td style="padding:10px 12px;font-size:14px;color:#374151;">{f["flight_number"]}</td>'
-            f'<td style="padding:10px 12px;font-size:14px;color:#374151;">{time}</td>'
-            f'<td style="padding:10px 12px;font-size:14px;font-weight:700;color:#1d4ed8;">'
+            f'<td class="em-td" style="padding:10px 12px;font-size:14px;color:#374151;">{f.get("airline", "")}</td>'
+            f'<td class="em-td" style="padding:10px 12px;font-size:14px;color:#374151;">{f["flight_number"]}</td>'
+            f'<td class="em-td" style="padding:10px 12px;font-size:14px;color:#374151;">{time}</td>'
+            f'<td class="em-price" style="padding:10px 12px;font-size:14px;font-weight:700;color:#1d4ed8;">'
             f'&euro;{f["price"]:.2f}</td>'
             f'</tr>'
         )
     return (
-        f'<p style="margin:0 0 8px;color:#6b7280;font-size:12px;font-weight:700;'
+        f'<p class="em-sub" style="margin:0 0 8px;color:#6b7280;font-size:12px;font-weight:700;'
         f'text-transform:uppercase;letter-spacing:0.05em;">'
         f'{label} &mdash; {origin} &rarr; {destination} &mdash; {d}</p>'
-        f'<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;'
+        f'<table class="em-tbl" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;'
         f'border-radius:8px;overflow:hidden;margin-bottom:24px;">'
-        f'<thead><tr style="background:#f1f5f9;">'
-        f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
+        f'<thead><tr class="em-thead" style="background:#f1f5f9;">'
+        f'<th class="em-th" style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
         f'text-transform:uppercase;letter-spacing:0.05em;"></th>'
-        f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
+        f'<th class="em-th" style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
         f'text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, "flight_col_airline")}</th>'
-        f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
+        f'<th class="em-th" style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
         f'text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, "flight_col_flight")}</th>'
-        f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
+        f'<th class="em-th" style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
         f'text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, "flight_col_departs")}</th>'
-        f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
+        f'<th class="em-th" style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
         f'text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, "flight_col_price")}</th>'
         f'</tr></thead>'
         f'<tbody>{rows}</tbody>'
@@ -137,10 +139,10 @@ def _send_alert_email(
     if price_goal and total is not None and alert_price is not None:
         per_person = total / passengers if passengers > 1 else None
         per_person_html = (
-            f' <span style="color:#6b7280;font-size:13px;">(&euro;{per_person:.2f} {_t(lang, "alert_per_person")})</span>'
+            f' <span class="em-sub" style="color:#6b7280;font-size:13px;">(&euro;{per_person:.2f} {_t(lang, "alert_per_person")})</span>'
         ) if per_person else ""
         goal_lines_html += (
-            f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
+            f'<p class="em-text" style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
             f'<strong>{_t(lang, "alert_price_goal")}</strong> &mdash; '
             f'{_t(lang, "alert_group_total")} ({pax_label}): <strong>&euro;{total:.2f}</strong>{per_person_html} '
             f'({_t(lang, "alert_your_target")}: &euro;{float(alert_price):.2f})</p>'
@@ -151,7 +153,7 @@ def _send_alert_email(
         ) + "\n"
     if avail_goal:
         goal_lines_html += (
-            f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
+            f'<p class="em-text" style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
             f'<strong>{_t(lang, "alert_avail_goal")}</strong> &mdash; {_t(lang, "alert_avail_on_sale")}</p>'
         )
         goal_lines_text += _t(lang, "alert_avail_goal_plain") + "\n"
@@ -174,15 +176,15 @@ def _send_alert_email(
         cheapest_per_person = cheapest_out + cheapest_in
         cheapest_group = cheapest_per_person * passengers
         pp_note_html = (
-            f' <span style="color:#6b7280;font-size:13px;">(&euro;{cheapest_per_person:.2f} {_t(lang, "alert_per_person")})</span>'
+            f' <span class="em-sub" style="color:#6b7280;font-size:13px;">(&euro;{cheapest_per_person:.2f} {_t(lang, "alert_per_person")})</span>'
         ) if passengers > 1 else ""
         flights_html += (
-            f'<p style="margin:0 0 24px;font-size:15px;color:#374151;">'
+            f'<p class="em-text" style="margin:0 0 24px;font-size:15px;color:#374151;">'
             f'{_t(lang, "alert_cheapest_combo")} ({pax_label}): '
-            f'<strong style="color:#1d4ed8;">&euro;{cheapest_out:.2f}</strong> {_t(lang, "alert_outbound")} + '
-            f'<strong style="color:#1d4ed8;">&euro;{cheapest_in:.2f}</strong> {_t(lang, "alert_return")} '
+            f'<strong class="em-price" style="color:#1d4ed8;">&euro;{cheapest_out:.2f}</strong> {_t(lang, "alert_outbound")} + '
+            f'<strong class="em-price" style="color:#1d4ed8;">&euro;{cheapest_in:.2f}</strong> {_t(lang, "alert_return")} '
             f'&times; {passengers} = '
-            f'<strong style="font-size:17px;color:#1d4ed8;">&euro;{cheapest_group:.2f}</strong> {_t(lang, "alert_total")}'
+            f'<strong class="em-price" style="font-size:17px;color:#1d4ed8;">&euro;{cheapest_group:.2f}</strong> {_t(lang, "alert_total")}'
             f'{pp_note_html}</p>'
         )
         pp_text = f" (€{cheapest_per_person:.2f} {_t(lang, 'alert_per_person')})" if passengers > 1 else ""
@@ -196,10 +198,13 @@ def _send_alert_email(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="supported-color-schemes" content="light dark" />
   <title>{subject}</title>
+  {_DARK_STYLE}
 </head>
-<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
+<body class="em-bg" style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+  <table class="em-bg" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
     <tr>
       <td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
@@ -228,7 +233,7 @@ def _send_alert_email(
 
           <!-- Body -->
           <tr>
-            <td style="background-color:#ffffff;padding:36px 40px;">
+            <td class="em-card" style="background-color:#ffffff;padding:36px 40px;">
               {goal_lines_html}
 
               {flights_html}
@@ -243,8 +248,8 @@ def _send_alert_email(
                     </a>
                   </td>
                   <td style="width:12px;"></td>
-                  <td style="background-color:#e2e8f0;border-radius:10px;">
-                    <a href="{frontend_url}"
+                  <td class="em-sec" style="background-color:#e2e8f0;border-radius:10px;">
+                    <a href="{frontend_url}" class="em-link"
                        style="display:inline-block;padding:14px 32px;color:#1e40af;font-size:15px;font-weight:600;text-decoration:none;">
                       {_t(lang, 'alert_search_ec')}
                     </a>
@@ -252,9 +257,9 @@ def _send_alert_email(
                 </tr>
               </table>
 
-              <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
+              <hr class="em-hr" style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
 
-              <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
+              <p class="em-muted" style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
                 {_t(lang, 'alert_deactivated')}
               </p>
             </td>
@@ -262,7 +267,7 @@ def _send_alert_email(
 
           <!-- Footer -->
           <tr>
-            <td style="background-color:#f8fafc;border-radius:0 0 16px 16px;border-top:1px solid #e5e7eb;padding:20px 40px;">
+            <td class="em-footer" style="background-color:#f8fafc;border-radius:0 0 16px 16px;border-top:1px solid #e5e7eb;padding:20px 40px;">
               <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">
                 &#169; El Cheapo &middot; Sent to {to_email}
               </p>
@@ -336,14 +341,14 @@ def _send_expired_email(
     if alert_price is not None:
         price_str = _t(lang, "expired_price_target").format(price=f"{float(alert_price):.2f}")
         goal_lines_html += (
-            f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
+            f'<p class="em-text" style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
             f'{price_str}</p>'
         )
         goal_lines_text += price_str + "\n"
     if notify_available:
         avail_str = _t(lang, "expired_avail_alert")
         goal_lines_html += (
-            f'<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
+            f'<p class="em-text" style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">'
             f'{avail_str}</p>'
         )
         goal_lines_text += avail_str + "\n"
@@ -353,10 +358,13 @@ def _send_expired_email(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="supported-color-schemes" content="light dark" />
   <title>{subject}</title>
+  {_DARK_STYLE}
 </head>
-<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
+<body class="em-bg" style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+  <table class="em-bg" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
     <tr>
       <td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
@@ -385,12 +393,12 @@ def _send_expired_email(
 
           <!-- Body -->
           <tr>
-            <td style="background-color:#ffffff;padding:36px 40px;">
-              <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
+            <td class="em-card" style="background-color:#ffffff;padding:36px 40px;">
+              <p class="em-text" style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.6;">
                 {_t(lang, 'expired_body')}
               </p>
 
-              <p style="margin:0 0 8px;color:#6b7280;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, 'expired_criteria')}</p>
+              <p class="em-sub" style="margin:0 0 8px;color:#6b7280;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, 'expired_criteria')}</p>
               {goal_lines_html}
 
               <!-- CTA button -->
@@ -405,9 +413,9 @@ def _send_expired_email(
                 </tr>
               </table>
 
-              <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
+              <hr class="em-hr" style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
 
-              <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
+              <p class="em-muted" style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;">
                 {_t(lang, 'expired_removed')}
               </p>
             </td>
@@ -415,7 +423,7 @@ def _send_expired_email(
 
           <!-- Footer -->
           <tr>
-            <td style="background-color:#f8fafc;border-radius:0 0 16px 16px;border-top:1px solid #e5e7eb;padding:20px 40px;">
+            <td class="em-footer" style="background-color:#f8fafc;border-radius:0 0 16px 16px;border-top:1px solid #e5e7eb;padding:20px 40px;">
               <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">
                 &#169; El Cheapo &middot; Sent to {to_email}
               </p>
