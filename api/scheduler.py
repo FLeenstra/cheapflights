@@ -48,6 +48,7 @@ def _flight_table_html(flights: list[dict], label: str, origin: str, destination
         rows += (
             f'<tr style="background:{bg};">'
             f'{badge}'
+            f'<td style="padding:10px 12px;font-size:14px;color:#374151;">{f.get("airline", "")}</td>'
             f'<td style="padding:10px 12px;font-size:14px;color:#374151;">{f["flight_number"]}</td>'
             f'<td style="padding:10px 12px;font-size:14px;color:#374151;">{time}</td>'
             f'<td style="padding:10px 12px;font-size:14px;font-weight:700;color:#1d4ed8;">'
@@ -63,6 +64,8 @@ def _flight_table_html(flights: list[dict], label: str, origin: str, destination
         f'<thead><tr style="background:#f1f5f9;">'
         f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
         f'text-transform:uppercase;letter-spacing:0.05em;"></th>'
+        f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
+        f'text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, "flight_col_airline")}</th>'
         f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
         f'text-transform:uppercase;letter-spacing:0.05em;">{_t(lang, "flight_col_flight")}</th>'
         f'<th style="padding:8px 12px;text-align:left;font-size:11px;color:#6b7280;font-weight:600;'
@@ -80,7 +83,8 @@ def _flight_table_text(flights: list[dict], label: str, origin: str, destination
     for i, f in enumerate(flights):
         time = f["departure_time"][11:16] if len(f["departure_time"]) >= 16 else f["departure_time"]
         prefix = "★ " if i == 0 else "  "
-        lines.append(f"  {prefix}{f['flight_number']}  {time}  €{f['price']:.2f}")
+        airline = f.get("airline", "")
+        lines.append(f"  {prefix}{airline}  {f['flight_number']}  {time}  €{f['price']:.2f}")
     return "\n".join(lines) + "\n"
 
 
