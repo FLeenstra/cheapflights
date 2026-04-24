@@ -105,6 +105,18 @@ describe('AirportInput', () => {
     expect(container.querySelector('.animate-spin')).toBeInTheDocument()
   })
 
+  it('shows full airport name in input when an airport is selected', () => {
+    const selected = { iata: 'DUB', name: 'Dublin Airport', city: 'Dublin', country: 'Ireland', countryCode: 'IE' }
+    render(<AirportInput {...baseProps} value={selected} />)
+    expect(screen.getByDisplayValue('Dublin Airport (DUB)')).toBeInTheDocument()
+  })
+
+  it('falls back to city name in input when airport has no name', () => {
+    const selected = { iata: 'DUB', name: '', city: 'Dublin', country: 'Ireland', countryCode: 'IE' }
+    render(<AirportInput {...baseProps} value={selected} />)
+    expect(screen.getByDisplayValue('Dublin (DUB)')).toBeInTheDocument()
+  })
+
   it('shows airport name below city in dropdown results', () => {
     render(<AirportInput {...baseProps} />)
     const input = screen.getByPlaceholderText('e.g. Dublin')

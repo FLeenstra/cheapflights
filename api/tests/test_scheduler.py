@@ -835,3 +835,18 @@ def test_send_expired_email_html_has_dark_mode_classes():
     assert 'class="em-bg"' in html
     assert 'class="em-card"' in html
     assert 'class="em-footer"' in html
+
+
+# ---------------------------------------------------------------------------
+# _airport_name — unit tests
+# ---------------------------------------------------------------------------
+
+def test_airport_name_returns_full_name_for_known_iata():
+    from scheduler import _airport_name
+    assert _airport_name("DUB") == "Dublin Airport"
+    assert _airport_name("AMS") == "Amsterdam Airport Schiphol"
+
+
+def test_airport_name_falls_back_to_iata_for_unknown_code():
+    from scheduler import _airport_name
+    assert _airport_name("ZZZ") == "ZZZ"

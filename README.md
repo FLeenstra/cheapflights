@@ -12,7 +12,7 @@ A multi-airline flight price monitor that helps budget travellers find the best 
 - **User accounts** — register, log in, and reset your password via a styled HTML email
 - **Saved searches** — save any route search to your account; view, edit, and delete from a dedicated page sorted by departure date with sort and filter controls
 - **Multi-passenger support** — search and track routes for 1–9 passengers; all totals (cheapest summary and alert threshold) are calculated for the full group
-- **Alert options** — set a max group price alert, an availability alert (notify when any flight appears), or both when saving a search
+- **Alert options** — set a max group price alert, an availability alert (notify when any flight appears), or both when saving a search; when a goal is met the HTML alert email shows full airport names in the header and card-style flight results matching the search screen
 - **Hourly route checker** — background scheduler checks every active route with an alert, logs results, and deactivates the route once its goal is met
 - **Goal reached indicator** — saved searches show a green "Goal reached" banner with the exact timestamp when a price or availability goal was first met
 - **User profile** — set a default departure airport and travel group (adults + children) to pre-fill the search form; choose light, dark, or device-matched theme
