@@ -172,7 +172,7 @@ def _send_reset_email(to_email: str, reset_url: str, lang: str = "en") -> None:
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
     <tr>
       <td align="center">
-        <table width="520" cellpadding="0" cellspacing="0">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
 
           <!-- Header -->
           <tr>
@@ -389,7 +389,7 @@ def _send_delete_confirmation_email(to_email: str, confirm_url: str, lang: str =
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
     <tr>
       <td align="center">
-        <table width="520" cellpadding="0" cellspacing="0">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
 
           <!-- Header -->
           <tr>

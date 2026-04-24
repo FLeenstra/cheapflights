@@ -202,7 +202,7 @@ def _send_alert_email(
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
     <tr>
       <td align="center">
-        <table width="520" cellpadding="0" cellspacing="0">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
 
           <!-- Header -->
           <tr>
@@ -359,7 +359,7 @@ def _send_expired_email(
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 16px;">
     <tr>
       <td align="center">
-        <table width="520" cellpadding="0" cellspacing="0">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
 
           <!-- Header -->
           <tr>
