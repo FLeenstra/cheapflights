@@ -236,6 +236,34 @@ def test_send_reset_email_smtp_failure_logs_fallback(capsys):
     assert "http://localhost:5173/reset-password?token=xyz" in captured.out
 
 
+def _get_reset_email_html():
+    """Helper: send a mock reset email and return the HTML body."""
+    from routers.auth import _send_reset_email
+    sent_messages = []
+    env = {"SMTP_HOST": "mailpit", "SMTP_PORT": "1025", "SMTP_USER": "", "SMTP_FROM": "x@x.com"}
+    mock_smtp = MagicMock()
+    mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
+    mock_smtp.__exit__ = MagicMock(return_value=False)
+    mock_smtp.send_message.side_effect = lambda m: sent_messages.append(m)
+    with patch.dict("os.environ", env):
+        with patch("routers.auth.smtplib.SMTP", return_value=mock_smtp):
+            _send_reset_email("user@test.com", "http://localhost:5173/reset-password?token=abc")
+    return sent_messages[0].get_body(preferencelist=("html",)).get_content()
+
+
+def test_send_reset_email_html_has_dark_mode_css():
+    html = _get_reset_email_html()
+    assert "prefers-color-scheme: dark" in html
+    assert "color-scheme" in html
+
+
+def test_send_reset_email_html_has_dark_mode_classes():
+    html = _get_reset_email_html()
+    assert 'class="em-bg"' in html
+    assert 'class="em-card"' in html
+    assert 'class="em-footer"' in html
+
+
 # ---------------------------------------------------------------------------
 # POST /auth/request-delete-account
 # ---------------------------------------------------------------------------
@@ -375,3 +403,31 @@ def test_send_delete_confirmation_email_smtp_called(capsys):
         with patch("routers.auth.smtplib.SMTP", return_value=mock_smtp):
             _send_delete_confirmation_email("user@test.com", "http://localhost:5173/delete-account?token=abc")
     mock_smtp.send_message.assert_called_once()
+
+
+def _get_delete_email_html():
+    """Helper: send a mock delete-account email and return the HTML body."""
+    from routers.auth import _send_delete_confirmation_email
+    sent_messages = []
+    env = {"SMTP_HOST": "mailpit", "SMTP_PORT": "1025", "SMTP_USER": "", "SMTP_FROM": "x@x.com"}
+    mock_smtp = MagicMock()
+    mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
+    mock_smtp.__exit__ = MagicMock(return_value=False)
+    mock_smtp.send_message.side_effect = lambda m: sent_messages.append(m)
+    with patch.dict("os.environ", env):
+        with patch("routers.auth.smtplib.SMTP", return_value=mock_smtp):
+            _send_delete_confirmation_email("user@test.com", "http://localhost:5173/delete-account?token=abc")
+    return sent_messages[0].get_body(preferencelist=("html",)).get_content()
+
+
+def test_send_delete_email_html_has_dark_mode_css():
+    html = _get_delete_email_html()
+    assert "prefers-color-scheme: dark" in html
+    assert "color-scheme" in html
+
+
+def test_send_delete_email_html_has_dark_mode_classes():
+    html = _get_delete_email_html()
+    assert 'class="em-bg"' in html
+    assert 'class="em-card"' in html
+    assert 'class="em-footer"' in html

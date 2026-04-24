@@ -543,6 +543,23 @@ def test_send_alert_email_has_google_flights_button():
     assert "DUB.BCN" in html
 
 
+def test_send_alert_email_html_has_dark_mode_css():
+    html = _get_alert_email_html([_MOCK_FLIGHT_OUT], [_MOCK_FLIGHT_IN])
+    assert "prefers-color-scheme: dark" in html
+    assert "color-scheme" in html
+
+
+def test_send_alert_email_html_has_dark_mode_classes():
+    html = _get_alert_email_html([_MOCK_FLIGHT_OUT], [_MOCK_FLIGHT_IN])
+    assert 'class="em-bg"' in html
+    assert 'class="em-card"' in html
+    assert 'class="em-footer"' in html
+    assert 'class="em-price"' in html
+    assert 'class="em-badge"' in html
+    assert 'class="em-r0"' in html
+    assert 'class="em-thead"' in html
+
+
 # ---------------------------------------------------------------------------
 # pax_label — unit tests (now in email_i18n)
 # ---------------------------------------------------------------------------
@@ -778,3 +795,31 @@ def test_send_expired_email_smtp_failure_does_not_raise():
         with patch("scheduler.smtplib.SMTP", side_effect=ConnectionRefusedError("refused")):
             _send_expired_email("user@test.com", "DUB", "BCN", "2026-01-01", "2026-01-08", None, True)
     # Must not raise
+
+
+def _get_expired_email_html():
+    """Helper: send a mock expired email and return the HTML body."""
+    from scheduler import _send_expired_email
+    sent_messages = []
+    env = {"SMTP_HOST": "mailpit", "SMTP_PORT": "1025", "SMTP_USER": "", "SMTP_FROM": "x@x.com"}
+    mock_smtp = MagicMock()
+    mock_smtp.__enter__ = MagicMock(return_value=mock_smtp)
+    mock_smtp.__exit__ = MagicMock(return_value=False)
+    mock_smtp.send_message.side_effect = lambda m: sent_messages.append(m)
+    with patch.dict("os.environ", env):
+        with patch("scheduler.smtplib.SMTP", return_value=mock_smtp):
+            _send_expired_email("user@test.com", "DUB", "BCN", "2026-06-01", "2026-06-08", 70, False)
+    return sent_messages[0].get_body(preferencelist=("html",)).get_content()
+
+
+def test_send_expired_email_html_has_dark_mode_css():
+    html = _get_expired_email_html()
+    assert "prefers-color-scheme: dark" in html
+    assert "color-scheme" in html
+
+
+def test_send_expired_email_html_has_dark_mode_classes():
+    html = _get_expired_email_html()
+    assert 'class="em-bg"' in html
+    assert 'class="em-card"' in html
+    assert 'class="em-footer"' in html
