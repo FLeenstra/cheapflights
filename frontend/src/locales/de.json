@@ -159,7 +159,7 @@
       "title": "Profil",
       "subtitle": "Lege deine Standardwerte fest — sie werden automatisch im Suchformular ausgefüllt.",
       "defaultDeparture": "Standard-Abflughafen",
-      "defaultDepartureHint": "Füllt das Feld „Von" bei jeder neuen Suche vor.",
+      "defaultDepartureHint": "Füllt das Feld „Von“ bei jeder neuen Suche vor.",
       "defaultDeparturePlaceholder": "z.B. Berlin",
       "clear": "Löschen",
       "travelGroup": "Standard-Reisegruppe",
@@ -277,7 +277,7 @@
       "totalNote": "Gesamt = günstigster Hin- + Rückflug je Datumspaar"
     },
     "airportInput": {
-      "noResults": "Keine Flughäfen gefunden für „{{query}}""
+      "noResults": "Keine Flughäfen gefunden für „{{query}}“"
     },
     "common": {
       "serverUnavailable": "Der Server ist vorübergehend nicht verfügbar. Bitte versuche es in einem Moment erneut.",

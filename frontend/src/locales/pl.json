@@ -159,7 +159,7 @@
       "title": "Profil",
       "subtitle": "Ustaw swoje domyślne wartości — będą automatycznie wypełniać formularz wyszukiwania.",
       "defaultDeparture": "Domyślne lotnisko wylotu",
-      "defaultDepartureHint": "Wypełnia pole „Z" przy każdym nowym wyszukiwaniu.",
+      "defaultDepartureHint": "Wypełnia pole „Z“ przy każdym nowym wyszukiwaniu.",
       "defaultDeparturePlaceholder": "np. Warszawa",
       "clear": "Wyczyść",
       "travelGroup": "Domyślna grupa podróżna",
@@ -277,7 +277,7 @@
       "totalNote": "Suma = najtańszy wylot + najtańszy powrót dla każdej pary dat"
     },
     "airportInput": {
-      "noResults": "Nie znaleziono lotnisk dla „{{query}}""
+      "noResults": "Nie znaleziono lotnisk dla „{{query}}“"
     },
     "common": {
       "serverUnavailable": "Serwer jest tymczasowo niedostępny. Spróbuj ponownie za chwilę.",
