@@ -16,6 +16,7 @@ A multi-airline flight price monitor that helps budget travellers find the best 
 - **Hourly route checker** — background scheduler checks every active route with an alert, logs results, and deactivates the route once its goal is met
 - **Goal reached indicator** — saved searches show a green "Goal reached" banner with the exact timestamp when a price or availability goal was first met
 - **User profile** — set a default departure airport and travel group (adults + children) to pre-fill the search form; choose light, dark, or device-matched theme
+- **Internationalisation** — UI and alert emails available in 8 languages: English, Dutch, French, German, Polish, Italian, Spanish, and Portuguese; language is auto-detected from the browser and can be changed from the navbar
 - **Admin panel** — admins can view all users, browse scheduler logs grouped by run, manually trigger the route checker, and promote/demote other users to admin; admin accounts cannot be deleted
 - **Fully containerised** — one `docker compose up` gets you a running stack
 
@@ -261,11 +262,12 @@ Both endpoints require authentication.
   "default_origin": "DUB",
   "travel_adults": 2,
   "travel_children_birthdates": ["2018-05-01"],
-  "theme_preference": "dark"
+  "theme_preference": "dark",
+  "language": "nl"
 }
 ```
 
-All fields optional (omitted fields reset to defaults). `default_origin` must be a valid 3-letter IATA code or `null`. `travel_adults` 1–9 (default 1). `travel_children_birthdates` is a list of `YYYY-MM-DD` strings (max 8, no future dates); ages are derived from birthdates and used to determine infant/child/adult category. Total adults + children ≤ 9. `theme_preference` must be `"light"`, `"dark"`, or `"system"`.
+All fields optional (omitted fields reset to defaults). `default_origin` must be a valid 3-letter IATA code or `null`. `travel_adults` 1–9 (default 1). `travel_children_birthdates` is a list of `YYYY-MM-DD` strings (max 8, no future dates); ages are derived from birthdates and used to determine infant/child/adult category. Total adults + children ≤ 9. `theme_preference` must be `"light"`, `"dark"`, or `"system"`. `language` must be one of `en`, `nl`, `fr`, `de`, `pl`, `it`, `es`, `pt` (default `en`).
 
 ### Admin
 
@@ -398,6 +400,7 @@ The saved searches page reflects the goal status: once a goal is reached the car
 - [x] User profile — default departure airport, travel group (adults + children), and light/dark/system theme preference
 - [x] Account deletion — delete account from profile page; confirmation email sent with a one-hour token link
 - [x] Multi-airline support — all non-stop flights from Google Flights (Ryanair, EasyJet, Vueling, Wizz Air, etc.)
+- [x] Internationalisation — 8 languages for UI and alert emails; language auto-detected from browser, persisted to user profile
 
 ---
 

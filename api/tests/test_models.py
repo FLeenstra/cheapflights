@@ -29,24 +29,6 @@ def test_user_email_unique(db):
         db.rollback()
 
 
-def test_create_route_without_user(db):
-    route = Route(
-        origin="AMS",
-        destination="BCN",
-        date_from=date(2026, 6, 1),
-        date_to=date(2026, 6, 30),
-    )
-    db.add(route)
-    db.commit()
-    db.refresh(route)
-
-    assert route.id is not None
-    assert route.user_id is None
-    assert route.origin == "AMS"
-    assert route.destination == "BCN"
-    assert route.is_active is True
-    assert route.alert_price is None
-
 
 def test_create_route_with_user(db):
     user = User(email="user@example.com", password_hash="hashed")
@@ -70,7 +52,12 @@ def test_create_route_with_user(db):
 
 
 def test_create_route_with_alert_price(db):
+    user = User(email="alert@example.com", password_hash="hashed")
+    db.add(user)
+    db.commit()
+
     route = Route(
+        user_id=user.id,
         origin="DUB",
         destination="AMS",
         date_from=date(2026, 8, 1),
